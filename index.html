@@ -221,9 +221,10 @@ function toast(msg,col=C.grn,sub=""){
 }
 
 // ── DUPLICATE CHECK ───────────────────────────────────────────────────────────
-// Checks if a student with the same name AND same grade already exists in the DB
+// Blocks ONLY if same teacher + same name + same grade
 function isDuplicate(name, grade){
   return students.some(s =>
+    s.by === teacher.by &&
     s.name.trim().toLowerCase() === name.trim().toLowerCase() &&
     s.grade === grade
   );
@@ -238,9 +239,9 @@ async function addStudent(){
   // Duplicate guard
   if(isDuplicate(form.name, teacher.grade)){
     toast(
-      `⚠ "${form.name}" from Grade ${teacher.grade} is already in the database!`,
+      `⚠ You have already entered "${form.name}" from Grade ${teacher.grade}!`,
       C.red,
-      "Please verify — if this is a different student, check the spelling or contact admin."
+      "You cannot enter the same student twice. If this is a different student with the same name, ask another teacher to enter them."
     );
     return;
   }
