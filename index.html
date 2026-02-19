@@ -402,11 +402,14 @@ function buildUI(){
   const gf=students.filter(r=>!r.aC).length;
 
   // Admin sees all entries; teachers see only their own
-  const myEntries=isAdmin
+  const myEntries = isAdmin
     ? [...students].reverse()
     : teacher.by
-      ? [...students].filter(s=>s.by===teacher.by).reverse()
+      ? [...students].filter(s => s.by === teacher.by).reverse()
       : [];
+
+  // Track which clubs are already picked in earlier preferences
+  const usedClubs = new Set([form.p1, form.p2, form.p3].filter(Boolean));
 
   const cFull=id=>{ const cl=gClub(id); if(!cl) return false; return cl.acts?cl.acts.every(a=>(ac[a.id]||0)>=a.cap):(cc[id]||0)>=cl.cap; };
   const aFull=id=>{ const a=ALL.flatMap(c=>c.acts||[]).find(a=>a.id===id); return a?(ac[id]||0)>=a.cap:false; };
@@ -469,17 +472,25 @@ function buildUI(){
   </div>`;
 
   // ── PREFERENCE ROW ──────────────────────────────────────────────────────────
-  function prefRow(pfk,pak,lbl,club){
-    const sv=form[pfk],av=form[pak];
+  function prefRow(pfk, pak, lbl, club){
+    const sv=form[pfk], av=form[pak];
     const f1=sv&&!club?.acts&&cFull(sv);
     const f2=av&&aFull(av);
+    // Clubs used in OTHER preferences (not this one)
+    const otherPicked=new Set([form.p1,form.p2,form.p3].filter(x=>x&&x!==sv));
     return `<div style="margin-bottom:12px">
       <div style="display:grid;grid-template-columns:${club?.acts?"2fr 1fr":"1fr"};gap:12px">
         <div>
           <label class="lbl">${lbl}</label>
           <select onchange="SP('${pfk}','${pak}',this.value)" style="border-color:${f1?C.red:C.bdr}" ${!sg?"disabled":""}>
             <option value="">— Select Club —</option>
-            ${sgClubs.map(c=>{ const fl=cFull(c.id),sl=sLeft(c.id); return `<option value="${c.id}"${form[pfk]===c.id?" selected":""}>${c.id}: ${c.name}${c.acts?" [+ Activity]":""} · ${fl?"FULL":sl+" left"}</option>`; }).join("")}
+            ${sgClubs.map(c=>{
+              const fl=cFull(c.id), sl=sLeft(c.id);
+              const alreadyPicked=otherPicked.has(c.id);
+              return `<option value="${c.id}"${form[pfk]===c.id?" selected":""}${alreadyPicked?" disabled":""}>
+                ${c.id}: ${c.name}${c.acts?" [+ Activity]":""}${alreadyPicked?" · Already selected above":" · "+(fl?"FULL":sl+" left")}
+              </option>`;
+            }).join("")}
           </select>
           ${f1?`<div style="font-size:10px;color:${C.red};margin-top:3px">🔴 Full — next preference will be tried automatically</div>`:""}
         </div>
