@@ -408,15 +408,15 @@ function buildUI(){
       ${isAdmin&&total>0?`<button class="btnO" onclick="CA()" style="color:${C.red}">🗑 Clear All</button>`:""}
     </div>
     <div class="g2" style="margin-bottom:14px">
-      <div><label class="lbl">YOUR NAME (TEACHER) *</label><input value="${form.by}" oninput="SF('by',this.value)" placeholder="Ms. Banerjee"/></div>
-      <div><label class="lbl">STUDENT NAME *</label><input value="${form.name}" oninput="SF('name',this.value)" placeholder="Full name" onkeydown="if(event.key==='Enter')AS()"/></div>
+      <div><label class="lbl">YOUR NAME (TEACHER) *</label><input value="${form.by}" oninput="SF('by',this.value)" onblur="SFR('by',this.value)" placeholder="Ms. Banerjee"/></div>
+      <div><label class="lbl">STUDENT NAME *</label><input value="${form.name}" oninput="SF('name',this.value)" onblur="SFR('name',this.value)" placeholder="Full name" onkeydown="if(event.key==='Enter')AS()"/></div>
       <div><label class="lbl">GRADE *</label>
         <select onchange="SG(this.value)">
           <option value="">— Select —</option>
           ${GRADES.map(g=>`<option value="${g}"${form.grade===g?" selected":""}>${g}</option>`).join("")}
         </select>
       </div>
-      <div><label class="lbl">SECTION</label><input value="${form.sec}" oninput="SF('sec',this.value)" placeholder="A / B / C" maxlength="2"/></div>
+      <div><label class="lbl">SECTION</label><input value="${form.sec}" oninput="SF('sec',this.value)" onblur="SFR('sec',this.value)" placeholder="A / B / C" maxlength="2"/></div>
     </div>
     ${warns.length?`<div style="background:${C.amb}15;border:1px solid ${C.amb}44;border-radius:6px;padding:10px 14px;margin-bottom:14px">
       <div style="font-size:11px;font-weight:700;color:${C.amb};margin-bottom:5px">⚠ CAPACITY WARNINGS — full options will be skipped</div>
@@ -629,7 +629,8 @@ function buildUI(){
 
 // ── GLOBALS (called from inline onclick) ─────────────────────────────────────
 window.ST  = v => { tab=v; render(); };
-window.SF  = (k,v) => { form[k]=v; render(); };
+window.SF  = (k,v) => { form[k]=v; };
+window.SFR = (k,v) => { form[k]=v; render(); };
 window.SG  = v => { form={...form,grade:v,p1:"",a1:"",p2:"",a2:"",p3:"",a3:""}; render(); };
 window.SP  = (pk,ak,v) => { form={...form,[pk]:v,[ak]:""}; render(); };
 window.AS  = addStudent;
