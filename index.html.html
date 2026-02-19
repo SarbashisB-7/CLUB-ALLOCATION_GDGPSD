@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>GD Goenka Dakshineswar — Club Allocation 2026-27</title>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+  SETUP INSTRUCTIONS (read before deploying)
+  ───────────────────────────────────────────────────────────────────────────
+  STEP 1 — CREATE FIREBASE PROJECT
+    a. Go to https://console.firebase.google.com
+    b. Click "Add project" → name it e.g. "gd-goenka-clubs"
+    c. Disable Google Analytics (not needed) → Create project
+
+  STEP 2 — CREATE FIRESTORE DATABASE
+    a. In left sidebar → Build → Firestore Database → Create database
+    b. Choose "Start in test mode" (we'll secure it in Step 4)
+    c. Pick any region close to you (e.g. asia-south1 for India)
+
+  STEP 3 — GET YOUR CONFIG KEYS
+    a. Project Settings (gear icon) → General → Your apps → Web app (</>)
+    b. Register app → copy the firebaseConfig object
+    c. Paste the values into the FIREBASE CONFIG section below (clearly marked)
+
+  STEP 4 — SECURE YOUR DATABASE (IMPORTANT!)
+    a. Firestore → Rules → paste these rules and Publish:
+
+      rules_version = '2';
+      service cloud.firestore {
+        match /databases/{database}/documents {
+          match /students/{doc} {
+            allow read, write: if true;  // open for all teachers to read/write
+          }
+        }
+      }
+
+    Note: This allows teachers to add students but NOT delete or modify the
+    allocation logic. Only you (via Firebase console) can change rules or data.
+
+  STEP 5 — DEPLOY TO NETLIFY
+    a. Go to https://netlify.com → Sign up free
+    b. Click "Add new site" → "Deploy manually"
+    c. Drag THIS HTML FILE into the upload box
+    d. Your site goes live instantly at a URL like xyz.netlify.app
+    e. To update: drag the new HTML file again — only YOU control this
+
+  STEP 6 — YOUR ADMIN URL
+    Add ?admin=true to your URL to access admin features:
+    e.g. https://gdgoenka-clubs.netlify.app/?admin=true
+    Keep this URL private — share the plain URL with teachers.
+
+  STEP 7 — CUSTOM DOMAIN (optional, free on Netlify)
+    Netlify dashboard → Domain management → Add custom domain
+    e.g. clubs.gdgoenka.edu.in (if your school has a domain)
+═══════════════════════════════════════════════════════════════════════════ -->
+
+<script type="module">
+// ═══════════════════════════════════════════════════════════════════════════
+// ▼▼▼  PASTE YOUR FIREBASE CONFIG HERE  ▼▼▼
+// ═══════════════════════════════════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyAdRgwlrX6mOuUGBmlM00JQC-73HkmVXtM",
+  authDomain:        "gd-goenka-clubs-5b00d.firebaseapp.com",
+  projectId:         "gd-goenka-clubs-5b00d",
+  storageBucket:     "gd-goenka-clubs-5b00d.firebasestorage.app",
+  messagingSenderId: "293847865717",
+  appId:             "1:293847865717:web:b5e0a0cdf535adc120db3c",
+  measurementId:     "G-VHDS71N69M"
+};
+// ═══════════════════════════════════════════════════════════════════════════
+// ▲▲▲  END OF CONFIG  ▲▲▲
+// ═══════════════════════════════════════════════════════════════════════════
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, collection, addDoc, deleteDoc, doc,
+  onSnapshot, query, orderBy, writeBatch, getDocs
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const app = initializeApp(FIREBASE_CONFIG);
+const db  = getFirestore(app);
+const COL = collection(db, "students");
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CLUB DATA
+// ═══════════════════════════════════════════════════════════════════════════
+const CLUBS = {
+  A:[
+    {id:"A1",name:"Art Club",cap:225},
+    {id:"A2",name:"Eco Club",cap:225},
+    {id:"A3",name:"Non-Fire Cooking Club",cap:120},
+    {id:"A4",name:"Quiz & Heritage Club",cap:150},
+    {id:"A5",name:"Dance Club",cap:85},
+    {id:"A6",name:"Creative Expressions Club",cap:210,activities:[
+      {id:"A6-French",name:"French",cap:40},{id:"A6-Drama",name:"Drama",cap:40},
+      {id:"A6-Writing",name:"Creative Writing",cap:100},{id:"A6-Reading",name:"Reading",cap:30}
+    ]},
+    {id:"A7",name:"Music Club",cap:85},
+    {id:"A8",name:"Karate Club",cap:100},
+  ],
+  B:[
+    {id:"B1",name:"Tech Club",cap:50},
+    {id:"B2",name:"Literary Expressions Club",cap:130,activities:[
+      {id:"B2-Debate",name:"Debate",cap:50},{id:"B2-Writing",name:"Creative Writing",cap:50},{id:"B2-Reading",name:"Reading",cap:30}
+    ]},
+    {id:"B3",name:"Math Club",cap:40},
+    {id:"B4",name:"Science Club",cap:60},
+    {id:"B5",name:"Explorers Club",cap:120,activities:[
+      {id:"B5-Eco",name:"Eco",cap:40},{id:"B5-Quiz",name:"Quiz",cap:35},{id:"B5-Heritage",name:"Heritage",cap:45}
+    ]},
+    {id:"B6",name:"Health & Fitness Club",cap:120,activities:[
+      {id:"B6-Yoga",name:"Yoga",cap:30},{id:"B6-TT",name:"Table Tennis",cap:30},
+      {id:"B6-Squash",name:"Squash",cap:20},{id:"B6-Cricket",name:"Cricket",cap:40}
+    ]},
+    {id:"B7",name:"Rhythm & Vibration Club",cap:120,activities:[
+      {id:"B7-Western",name:"Western Dance",cap:30},{id:"B7-Eastern",name:"Eastern Dance",cap:30},
+      {id:"B7-Instrumental",name:"Instrumental",cap:30},{id:"B7-Vocal",name:"Vocal Music",cap:30}
+    ]},
+    {id:"B8",name:"Artistic Expressions Club",cap:40},
+  ],
+  C:[
+    {id:"C1",name:"AI & Data Science Club",cap:40},
+    {id:"C2",name:"Science & Technology Club",cap:60},
+    {id:"C3",name:"Non-Fire Cooking Club",cap:40},
+    {id:"C4",name:"Commerce Club",cap:30},
+    {id:"C5",name:"Literary, Quiz & Cultural Heritage Club",cap:115,activities:[
+      {id:"C5-Literary",name:"Literary",cap:40},{id:"C5-Quiz",name:"Quiz",cap:30},{id:"C5-Heritage",name:"Cultural Heritage",cap:45}
+    ]},
+    {id:"C6",name:"Performing Arts Club",cap:160,activities:[
+      {id:"C6-Western",name:"Western Dance",cap:30},{id:"C6-Eastern",name:"Eastern Dance",cap:30},
+      {id:"C6-Music",name:"Music",cap:30},{id:"C6-Drama",name:"Drama",cap:40},{id:"C6-Yoga",name:"Yoga",cap:30}
+    ]},
+    {id:"C7",name:"Sports & Defence Club",cap:140,activities:[
+      {id:"C7-Chess",name:"Chess",cap:40},{id:"C7-Football",name:"Football",cap:40},
+      {id:"C7-Basketball",name:"Basketball",cap:30},{id:"C7-Taekwondo",name:"Taekwondo",cap:30}
+    ]},
+    {id:"C8",name:"Foreign Language & Global Skills Club",cap:130,activities:[
+      {id:"C8-Spanish",name:"Spanish",cap:30},{id:"C8-Reading",name:"Reading",cap:30},
+      {id:"C8-Writing",name:"Creative Writing",cap:40},{id:"C8-Debate",name:"Debate",cap:30}
+    ]},
+  ]
+};
+const ALL_CLUBS = Object.values(CLUBS).flat();
+const ALL_GRADES = ["Nursery/BV1","UKG/BV2","KG/BV3","I","II","III","IV","V","VI","VII","VIII","IX"];
+
+function getSegment(g){
+  if(["Nursery/BV1","UKG/BV2","KG/BV3","I","II","III","IV","V"].includes(g)) return "A";
+  if(["VI","VII"].includes(g)) return "B";
+  if(["VIII","IX"].includes(g)) return "C";
+  return null;
+}
+function getClub(id){ return ALL_CLUBS.find(c=>c.id===id); }
+function getActivity(cId,aId){ return getClub(cId)?.activities?.find(a=>a.id===aId); }
+
+function computeCounts(students){
+  const cc={},ac={};
+  ALL_CLUBS.forEach(c=>{ cc[c.id]=0; c.activities?.forEach(a=>{ ac[a.id]=0; }); });
+  students.forEach(s=>{
+    if(s.allocatedClub) cc[s.allocatedClub]=(cc[s.allocatedClub]||0)+1;
+    if(s.allocatedActivity) ac[s.allocatedActivity]=(ac[s.allocatedActivity]||0)+1;
+  });
+  return {cc,ac};
+}
+
+function allocateOne(student,cc,ac){
+  const seg=getSegment(student.grade);
+  if(!seg) return {allocatedClub:null,allocatedActivity:null,prefUsed:null,reason:"Invalid grade"};
+  const segClubs=CLUBS[seg];
+  for(const [pClub,pAct,label] of [
+    [student.pref1,student.pref1Activity,"1st"],
+    [student.pref2,student.pref2Activity,"2nd"],
+    [student.pref3,student.pref3Activity,"3rd"]
+  ]){
+    if(!pClub) continue;
+    const club=segClubs.find(c=>c.id===pClub);
+    if(!club) continue;
+    if(club.activities){
+      if(!pAct) continue;
+      const act=club.activities.find(a=>a.id===pAct);
+      if(act&&(ac[act.id]||0)<act.cap)
+        return {allocatedClub:club.id,allocatedActivity:act.id,prefUsed:label,reason:`${label} preference`};
+    } else {
+      if((cc[club.id]||0)<club.cap)
+        return {allocatedClub:club.id,allocatedActivity:null,prefUsed:label,reason:`${label} preference`};
+    }
+  }
+  // Admin fallback
+  const avail=segClubs.flatMap(club=>{
+    if(club.activities) return club.activities.filter(a=>(ac[a.id]||0)<a.cap).map(a=>({club,activity:a,space:a.cap-(ac[a.id]||0)}));
+    return (cc[club.id]||0)<club.cap?[{club,activity:null,space:club.cap-(cc[club.id]||0)}]:[];
+  }).sort((a,b)=>b.space-a.space);
+  if(avail.length>0){
+    const b=avail[0];
+    return {allocatedClub:b.club.id,allocatedActivity:b.activity?.id||null,prefUsed:"admin",reason:"Administrative allocation"};
+  }
+  return {allocatedClub:null,allocatedActivity:null,prefUsed:null,reason:"No capacity — manual review needed"};
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CSV UTILS
+// ═══════════════════════════════════════════════════════════════════════════
+function parseCSV(text){
+  const lines=text.trim().split("\n");
+  const out=[];
+  for(let i=1;i<lines.length;i++){
+    const c=lines[i].split(",").map(x=>x.trim().replace(/^"|"$/g,""));
+    if(!c[0]) continue;
+    out.push({
+      name:c[0],grade:c[1]||"",section:c[2]||"",
+      pref1:c[3]||"",pref1Activity:c[4]||"",
+      pref2:c[5]||"",pref2Activity:c[6]||"",
+      pref3:c[7]||"",pref3Activity:c[8]||"",
+      addedBy:c[9]||"CSV",addedAt:new Date().toISOString(),
+      allocatedClub:null,allocatedActivity:null,prefUsed:null,reason:""
+    });
+  }
+  return out;
+}
+function dlCSV(filename,rows){
+  const blob=new Blob([rows.join("\n")],{type:"text/csv;charset=utf-8;"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=filename;
+  a.click();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THEME & STYLES
+// ═══════════════════════════════════════════════════════════════════════════
+const T={
+  bg:"#0D1117",card:"#161B22",border:"#30363D",head:"#1C2128",
+  accent:"#2F81F7",green:"#3FB950",amber:"#D29922",red:"#F85149",
+  purple:"#BC8CFF",teal:"#39C5CF",text:"#E6EDF3",muted:"#8B949E"
+};
+function chip(c){ return `display:inline-block;background:${c}22;color:${c};border:1px solid ${c}44;border-radius:4px;padding:2px 7px;font-size:10px;white-space:nowrap`; }
+function RC(r){ return r?.startsWith("1st")?T.green:r?.startsWith("2nd")?T.accent:r?.startsWith("3rd")?T.amber:r==="admin"||r?.startsWith("Admin")?T.purple:T.red; }
+
+const css=`
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:${T.bg};color:${T.text};font-family:'Segoe UI',system-ui,sans-serif;font-size:14px}
+button{cursor:pointer;font-family:inherit}
+button:hover{opacity:.85}
+select,input,textarea{background:${T.bg};color:${T.text};border:1px solid ${T.border};border-radius:6px;padding:8px 11px;font-family:inherit;font-size:13px;width:100%;outline:none}
+select:focus,input:focus,textarea:focus{border-color:${T.accent}}
+table{width:100%;border-collapse:collapse}
+th{background:${T.head};color:${T.muted};padding:8px 12px;text-align:left;font-size:10px;letter-spacing:1px;border-bottom:1px solid ${T.border};white-space:nowrap}
+td{padding:8px 12px;border-bottom:1px solid ${T.border}20;font-size:12px;vertical-align:middle}
+tr:hover td{background:${T.head}60}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes slideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
+.card{background:${T.card};border:1px solid ${T.border};border-radius:8px;padding:18px 22px;margin-bottom:16px}
+.lbl{font-size:11px;color:${T.muted};letter-spacing:.8px;margin-bottom:5px;display:block;font-weight:600}
+.btn{color:#fff;border:none;border-radius:6px;padding:8px 16px;font-weight:700;font-size:12px;white-space:nowrap}
+.btn-sm{padding:5px 12px;font-size:11px}
+.btnO{background:transparent;border:1px solid ${T.border};border-radius:6px;padding:7px 14px;font-size:12px;color:${T.muted}}
+.tab{padding:6px 14px;border:none;border-radius:6px;font-size:12px;transition:.15s}
+.grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.grid4{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.stat{background:${T.card};border:1px solid ${T.border};border-radius:8px;padding:12px 18px;flex:1;min-width:80px}
+.overflow{overflow-x:auto}
+`;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// APP STATE
+// ═══════════════════════════════════════════════════════════════════════════
+let students=[];
+let tab="entry";
+let form={teacherName:"",name:"",grade:"",section:"",pref1:"",pref1Activity:"",pref2:"",pref2Activity:"",pref3:"",pref3Activity:""};
+let toasts=[];
+let csvText="";
+let csvErr="";
+let fSeg="ALL",fStatus="ALL",fSearch="",fGrade="ALL";
+let dbReady=false;
+let configMissing=FIREBASE_CONFIG.apiKey.startsWith("REPLACE");
+
+const isAdmin=new URLSearchParams(window.location.search).get("admin")==="true";
+const TABS=isAdmin
+  ?[["entry","📝 Entry"],["bulk","📤 Bulk"],["results","📊 Results"],["exports","📁 Export"],["capacity","🏫 Capacity"],["guide","📖 Guide"]]
+  :[["entry","📝 Entry"],["bulk","📤 Bulk"],["capacity","🏫 Live Capacity"],["guide","📖 Guide"]];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENDER ENGINE
+// ═══════════════════════════════════════════════════════════════════════════
+function r(id){ return document.getElementById(id); }
+function setHTML(id,html){ const el=r(id); if(el) el.innerHTML=html; }
+function render(){ setHTML("app",buildApp()); bindEvents(); }
+
+function addToast(msg,color=T.green,sub=""){
+  const id=Date.now()+Math.random();
+  toasts.push({id,msg,color,sub});
+  render();
+  setTimeout(()=>{ toasts=toasts.filter(t=>t.id!==id); render(); },4500);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FIRESTORE LISTENER
+// ═══════════════════════════════════════════════════════════════════════════
+function startListener(){
+  if(configMissing) return;
+  const q=query(COL,orderBy("addedAt","asc"));
+  onSnapshot(q,snap=>{
+    students=snap.docs.map(d=>({...d.data(),_fid:d.id}));
+    dbReady=true;
+    render();
+  },err=>{
+    console.error(err);
+    addToast("Firestore error: "+err.message,T.red);
+  });
+}
+startListener();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADD STUDENT
+// ═══════════════════════════════════════════════════════════════════════════
+async function addStudent(){
+  if(!form.name||!form.grade||!form.pref1||!form.teacherName) return;
+  const c1=getClub(form.pref1);
+  if(c1?.activities&&!form.pref1Activity){ addToast("Select an activity for 1st preference",T.amber); return; }
+  const {cc,ac}=computeCounts(students);
+  const alloc=allocateOne(form,cc,ac);
+  const student={
+    name:form.name,grade:form.grade,section:form.section||"",
+    pref1:form.pref1||"",pref1Activity:form.pref1Activity||"",
+    pref2:form.pref2||"",pref2Activity:form.pref2Activity||"",
+    pref3:form.pref3||"",pref3Activity:form.pref3Activity||"",
+    addedBy:form.teacherName,addedAt:new Date().toISOString(),
+    ...alloc
+  };
+  try{
+    await addDoc(COL,student);
+    const club=getClub(student.allocatedClub);
+    const act=student.allocatedActivity?getActivity(student.allocatedClub,student.allocatedActivity):null;
+    if(club){
+      const prefLabel=student.prefUsed==="admin"?"Administratively":
+        student.prefUsed==="1st"?"✓ 1st preference":
+        student.prefUsed==="2nd"?"↓ 2nd preference (1st was full)":
+        "↓ 3rd preference (1st & 2nd were full)";
+      addToast(`${student.name} → ${club.name}${act?" · "+act.name:""}`,RC(student.reason),prefLabel);
+    } else {
+      addToast(`${student.name} — no seats, manual review needed`,T.red);
+    }
+    form={...form,name:"",section:"",pref1:"",pref1Activity:"",pref2:"",pref2Activity:"",pref3:"",pref3Activity:""};
+    render();
+  } catch(e){ addToast("Save failed: "+e.message,T.red); }
+}
+
+async function removeStudent(fid){
+  if(!isAdmin) return;
+  try{ await deleteDoc(doc(db,"students",fid)); addToast("Entry removed",T.amber); }
+  catch(e){ addToast("Delete failed: "+e.message,T.red); }
+}
+
+async function clearAll(){
+  if(!isAdmin||!confirm("Clear ALL student data? This cannot be undone.")) return;
+  try{
+    const snap=await getDocs(COL);
+    const batch=writeBatch(db);
+    snap.docs.forEach(d=>batch.delete(d.ref));
+    await batch.commit();
+    addToast("All data cleared",T.amber);
+  } catch(e){ addToast("Clear failed: "+e.message,T.red); }
+}
+
+async function importCSV(){
+  csvErr="";
+  const parsed=parseCSV(csvText);
+  if(!parsed.length){ csvErr="No valid rows found."; render(); return; }
+  let running=[...students];
+  const batch=writeBatch(db);
+  for(const s of parsed){
+    const {cc,ac}=computeCounts(running);
+    const alloc=allocateOne(s,cc,ac);
+    const student={...s,...alloc};
+    running.push(student);
+    batch.set(doc(COL),student);
+  }
+  try{
+    await batch.commit();
+    csvText="";
+    addToast(`✓ ${parsed.length} students imported & allocated`);
+  } catch(e){ addToast("Import failed: "+e.message,T.red); }
+  render();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXPORTS
+// ═══════════════════════════════════════════════════════════════════════════
+function exportMaster(){
+  const hdr=`"Sl.No","Name","Grade","Section","Pref1","Act1","Pref2","Act2","Pref3","Act3","Allocated Club","Allocated Activity","Preference Used","Status","Teacher","Time"`;
+  const rows=students.map((r,i)=>{
+    const club=getClub(r.allocatedClub);
+    const act=r.allocatedActivity?getActivity(r.allocatedClub,r.allocatedActivity):null;
+    return [i+1,r.name,r.grade,r.section||"",r.pref1||"",r.pref1Activity||"",r.pref2||"",r.pref2Activity||"",r.pref3||"",r.pref3Activity||"",
+      club?club.name:"UNALLOCATED",act?act.name:"",r.prefUsed||"",r.reason||"",r.addedBy||"",
+      r.addedAt?new Date(r.addedAt).toLocaleString():""
+    ].map(v=>`"${v}"`).join(",");
+  });
+  dlCSV("GDGoenka_Master_2026-27.csv",[hdr,...rows]);
+  addToast("✓ Master list exported");
+}
+
+function exportClubWise(){
+  const {cc,ac}=computeCounts(students);
+  const rows=[`"GD GOENKA DAKSHINESWAR — CLUB-WISE ALLOCATION 2026-27"`,`"Generated: ${new Date().toLocaleString()}"`,`""`];
+  ["A","B","C"].forEach(sg=>{
+    CLUBS[sg].forEach(club=>{
+      const members=students.filter(r=>r.allocatedClub===club.id);
+      rows.push(`""`,`"SEGMENT ${sg} — ${club.id}: ${club.name} (${members.length}/${club.cap})"`);
+      if(club.activities) club.activities.forEach(a=>{const n=ac[a.id]||0;rows.push(`"  Activity: ${a.name} — ${n}/${a.cap} filled"`);});
+      rows.push(`"Sl.No","Name","Grade","Section","Activity","Preference","Teacher"`);
+      members.forEach((r,i)=>{const act=r.allocatedActivity?getActivity(r.allocatedClub,r.allocatedActivity):null;rows.push([i+1,r.name,r.grade,r.section||"",act?act.name:"",r.prefUsed||"",r.addedBy||""].map(v=>`"${v}"`).join(","));});
+      if(!members.length) rows.push(`"(No students yet)"`);
+    });
+  });
+  dlCSV("GDGoenka_ClubWise_2026-27.csv",rows);
+  addToast("✓ Club-wise lists exported");
+}
+
+function exportUnallocated(){
+  const bad=students.filter(r=>!r.allocatedClub);
+  if(!bad.length){ addToast("No unallocated students!",T.green); return; }
+  const hdr=`"Name","Grade","Section","Pref1","Pref2","Pref3","Reason","Teacher"`;
+  const rows=bad.map(r=>[r.name,r.grade,r.section||"",r.pref1||"",r.pref2||"",r.pref3||"",r.reason||"",r.addedBy||""].map(v=>`"${v}"`).join(","));
+  dlCSV("GDGoenka_ManualReview.csv",[hdr,...rows]);
+  addToast("✓ Review list exported");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BUILD HTML
+// ═══════════════════════════════════════════════════════════════════════════
+function capBar(n,cap,label,sm=false){
+  const pct=Math.min(100,Math.round((n/cap)*100));
+  const col=pct>=100?T.red:pct>=75?T.amber:T.green;
+  const h=sm?4:6;
+  const status=pct>=100?"FULL · 0 seats":pct>=75?`FILLING · ${cap-n} left`:`AVAILABLE · ${cap-n} left`;
+  return `<div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+      <span style="font-size:${sm?10:11}px;color:${T.muted}">${label||""}</span>
+      <span style="font-size:${sm?10:11}px;font-weight:700;color:${col}">${n}/${cap}</span>
+    </div>
+    <div style="background:${T.border};border-radius:3px;height:${h}px;overflow:hidden">
+      <div style="width:${pct}%;height:100%;background:${col}"></div>
+    </div>
+    ${!sm?`<div style="font-size:9px;color:${col};margin-top:3px;font-weight:700;letter-spacing:.5px">${status}</div>`:""}
+  </div>`;
+}
+
+function buildApp(){
+  const {cc,ac}=computeCounts(students);
+  const seg=getSegment(form.grade);
+  const segClubs=seg?CLUBS[seg]:[];
+  const selClub1=getClub(form.pref1);
+  const selClub2=getClub(form.pref2);
+  const selClub3=getClub(form.pref3);
+  const total=students.length;
+  const g1=students.filter(r=>r.prefUsed==="1st").length;
+  const g2=students.filter(r=>r.prefUsed==="2nd").length;
+  const g3=students.filter(r=>r.prefUsed==="3rd").length;
+  const ga=students.filter(r=>r.prefUsed==="admin").length;
+  const gf=students.filter(r=>!r.allocatedClub).length;
+
+  function clubFull(clubId){
+    const club=getClub(clubId);
+    if(!club) return false;
+    if(club.activities) return club.activities.every(a=>(ac[a.id]||0)>=a.cap);
+    return (cc[clubId]||0)>=club.cap;
+  }
+  function actFull(actId){ const a=ALL_CLUBS.flatMap(c=>c.activities||[]).find(a=>a.id===actId); return a?(ac[actId]||0)>=a.cap:false; }
+  function seatsLeft(clubId,actId=null){
+    if(actId){const a=ALL_CLUBS.flatMap(c=>c.activities||[]).find(a=>a.id===actId);return a?a.cap-(ac[actId]||0):0;}
+    const c=getClub(clubId);return c?c.cap-(cc[clubId]||0):0;
+  }
+
+  // Pref warnings
+  const warns=[];
+  if(form.pref1&&selClub1?.activities&&form.pref1Activity&&actFull(form.pref1Activity)) warns.push(`1st choice activity "${getActivity(form.pref1,form.pref1Activity)?.name}" is FULL`);
+  else if(form.pref1&&!selClub1?.activities&&clubFull(form.pref1)) warns.push(`1st choice "${selClub1?.name}" is FULL`);
+  if(form.pref2&&selClub2?.activities&&form.pref2Activity&&actFull(form.pref2Activity)) warns.push(`2nd choice activity "${getActivity(form.pref2,form.pref2Activity)?.name}" is FULL`);
+  else if(form.pref2&&!selClub2?.activities&&clubFull(form.pref2)) warns.push(`2nd choice "${selClub2?.name}" is FULL`);
+  if(form.pref3&&selClub3?.activities&&form.pref3Activity&&actFull(form.pref3Activity)) warns.push(`3rd choice activity "${getActivity(form.pref3,form.pref3Activity)?.name}" is FULL`);
+  else if(form.pref3&&!selClub3?.activities&&clubFull(form.pref3)) warns.push(`3rd choice "${selClub3?.name}" is FULL`);
+
+  const usedGrades=[...new Set(students.map(r=>r.grade))].sort((a,b)=>ALL_GRADES.indexOf(a)-ALL_GRADES.indexOf(b));
+
+  // Toasts HTML
+  const toastHTML=`<div style="position:fixed;top:14px;right:14px;z-index:999;display:flex;flex-direction:column;gap:8px;align-items:flex-end">
+    ${toasts.map(t=>`<div style="background:${t.color};color:#fff;border-radius:8px;padding:10px 16px;font-size:12px;font-weight:600;animation:slideIn .25s ease;box-shadow:0 4px 20px ${t.color}55;max-width:320px;min-width:200px">
+      <div>${t.msg}</div>${t.sub?`<div style="font-size:10px;opacity:.85;margin-top:3px;font-weight:400">${t.sub}</div>`:""}
+    </div>`).join("")}
+  </div>`;
+
+  // Config missing banner
+  const configBanner=configMissing?`<div style="background:${T.amber}22;border:1px solid ${T.amber}55;border-radius:8px;padding:14px 18px;margin-bottom:16px;font-size:13px;color:${T.amber}">
+    <b>⚠ Firebase Not Connected</b> — Open this HTML file in a text editor and replace the FIREBASE_CONFIG values with your project credentials (see instructions at top of file). Data will not save until connected.
+  </div>`:"";
+
+  // Header
+  const hdr=`<div style="background:${T.head};border-bottom:1px solid ${T.border};padding:14px 22px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;position:sticky;top:0;z-index:100">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:34px;height:34px;background:linear-gradient(135deg,${T.accent},${T.purple});border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#fff;flex-shrink:0">GD</div>
+      <div>
+        <div style="font-weight:700;font-size:15px;letter-spacing:-.3px">Club Allocation · 2026-27${isAdmin?` <span style="font-size:11px;color:${T.amber}">[ADMIN]</span>`:""}</div>
+        <div style="font-size:11px;color:${T.muted}">${total} students · ${configMissing?"⚠ Firebase not connected":"🔴 live"} ${!dbReady&&!configMissing?"· connecting…":""}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:3px;flex-wrap:wrap">
+      ${TABS.map(([t,l])=>`<button class="tab" onclick="setTab('${t}')" style="background:${tab===t?T.accent:"transparent"};color:${tab===t?"#fff":T.muted};font-weight:${tab===t?700:400}">${l}</button>`).join("")}
+    </div>
+  </div>`;
+
+  // ── ENTRY TAB
+  function prefSelect(pfk,pak,label,req,selClub){
+    const selVal=form[pfk]; const actVal=form[pak];
+    const isFull=selVal&&!selClub?.activities&&clubFull(selVal);
+    const isActFull=actVal&&actFull(actVal);
+    return `<div style="margin-bottom:12px">
+      <div style="display:grid;grid-template-columns:${selClub?.activities?"2fr 1fr":"1fr"};gap:12px">
+        <div>
+          <label class="lbl">${label}</label>
+          <select onchange="setPref('${pfk}',this.value)" style="border-color:${isFull?T.red:T.border}" ${!seg?"disabled":""}>
+            <option value="">— Select Club —</option>
+            ${segClubs.map(c=>{const full=clubFull(c.id);const sl=seatsLeft(c.id);return `<option value="${c.id}" ${form[pfk]===c.id?"selected":""}>${c.id}: ${c.name}${c.activities?" [Activities▼]":""} · ${full?"FULL":sl+" seats left"}</option>`;}).join("")}
+          </select>
+          ${isFull?`<div style="font-size:10px;color:${T.red};margin-top:3px">🔴 Full — will use next preference</div>`:""}
+        </div>
+        ${selClub?.activities?`<div>
+          <label class="lbl">ACTIVITY${req?" *":""}</label>
+          <select onchange="setFormField('${pak}',this.value)" style="border-color:${isActFull?T.red:!actVal&&req?T.amber:T.border}">
+            <option value="">— Select —</option>
+            ${selClub.activities.map(a=>{const full=actFull(a.id);const sl=seatsLeft(null,a.id);return `<option value="${a.id}" ${form[pak]===a.id?"selected":""}>${a.name} · ${full?"FULL":sl+" left"}</option>`;}).join("")}
+          </select>
+          ${isActFull?`<div style="font-size:10px;color:${T.red};margin-top:3px">🔴 Activity full — will use next preference</div>`:""}
+        </div>`:""}
+      </div>
+    </div>`;
+  }
+
+  const entryTab=`
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-weight:700;font-size:15px;margin-bottom:3px">Student Data Entry</div>
+          <div style="font-size:12px;color:${T.muted}">Students are allocated to a club <b style="color:${T.text}">instantly on entry</b></div>
+        </div>
+        ${isAdmin&&students.length>0?`<button class="btnO" onclick="clearAll()" style="color:${T.red}">🗑 Clear All</button>`:""}
+      </div>
+      <div class="grid2" style="margin-bottom:14px">
+        <div><label class="lbl">YOUR NAME (TEACHER) *</label><input value="${form.teacherName}" oninput="setFormField('teacherName',this.value)" placeholder="Ms. Banerjee"/></div>
+        <div><label class="lbl">STUDENT NAME *</label><input value="${form.name}" oninput="setFormField('name',this.value)" placeholder="Full name" onkeydown="if(event.key==='Enter')addStudent()"/></div>
+        <div><label class="lbl">GRADE *</label>
+          <select onchange="setGrade(this.value)">
+            <option value="">— Select —</option>
+            ${ALL_GRADES.map(g=>`<option value="${g}" ${form.grade===g?"selected":""}>${g}</option>`).join("")}
+          </select>
+        </div>
+        <div><label class="lbl">SECTION</label><input value="${form.section}" oninput="setFormField('section',this.value)" placeholder="A / B / C" maxlength="2"/></div>
+      </div>
+      ${warns.length?`<div style="background:${T.amber}15;border:1px solid ${T.amber}44;border-radius:6px;padding:10px 14px;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:${T.amber};margin-bottom:6px">⚠ CAPACITY WARNINGS</div>
+        ${warns.map(w=>`<div style="font-size:11px;color:${T.amber};margin-bottom:2px">• ${w}</div>`).join("")}
+      </div>`:""}
+      ${prefSelect("pref1","pref1Activity","1ST PREFERENCE *",true,selClub1)}
+      ${prefSelect("pref2","pref2Activity","2ND PREFERENCE",false,selClub2)}
+      ${prefSelect("pref3","pref3Activity","3RD PREFERENCE",false,selClub3)}
+      <div style="margin-top:14px;display:flex;gap:10px;justify-content:flex-end;align-items:center">
+        ${!form.teacherName?`<span style="font-size:11px;color:${T.amber}">⚠ Enter your name first</span>`:""}
+        <button class="btn" onclick="addStudent()" style="background:${T.accent}" ${!form.name||!form.grade||!form.pref1||!form.teacherName?"disabled":""}>+ Add & Allocate</button>
+      </div>
+    </div>
+    ${students.length>0?`<div class="card">
+      <div style="display:flex;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;align-items:center">
+        <div style="font-weight:700;font-size:14px">Live Entries <span style="color:${T.muted};font-weight:400;font-size:12px">(${students.length} students)</span></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <span style="${chip(T.green)}">${g1} × 1st pref</span>
+          <span style="${chip(T.accent)}">${g2} × 2nd pref</span>
+          <span style="${chip(T.amber)}">${g3} × 3rd pref</span>
+          <span style="${chip(T.purple)}">${ga} Admin</span>
+          ${gf?`<span style="${chip(T.red)}">${gf} Unalloc</span>`:""}
+        </div>
+      </div>
+      <div class="overflow"><table>
+        <thead><tr>${["#","Name","Grade","Sec","Pref1","Pref2","Pref3","✦ Allocated Club","✦ Activity","✦ Status","Teacher","Time",...(isAdmin?[""]:[])].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
+        <tbody>
+          ${[...students].reverse().map((s,idx)=>{
+            const club=getClub(s.allocatedClub);
+            const act=s.allocatedActivity?getActivity(s.allocatedClub,s.allocatedActivity):null;
+            const rc=RC(s.prefUsed||s.reason);
+            return `<tr style="${!s.allocatedClub?"background:"+T.red+"0d":""}">
+              <td style="color:${T.muted}">${students.length-idx}</td>
+              <td style="font-weight:600">${s.name}</td>
+              <td><span style="${chip(T.accent)}">${s.grade}</span></td>
+              <td>${s.section||"—"}</td>
+              <td><span style="${chip(T.green)}">${s.pref1||"—"}</span></td>
+              <td><span style="${chip(T.amber)}">${s.pref2||"—"}</span></td>
+              <td><span style="${chip(T.purple)}">${s.pref3||"—"}</span></td>
+              <td style="font-weight:600;color:${club?T.text:T.red}">${club?`${club.id}: ${club.name}`:"UNALLOCATED"}</td>
+              <td style="color:${T.muted}">${act?act.name:"—"}</td>
+              <td><span style="${chip(rc)}">${s.prefUsed==="admin"?"Admin":s.prefUsed?s.prefUsed+" pref":s.reason||"—"}</span></td>
+              <td style="color:${T.muted};font-size:11px">${s.addedBy||"—"}</td>
+              <td style="color:${T.muted};font-size:10px">${s.addedAt?new Date(s.addedAt).toLocaleTimeString():"—"}</td>
+              ${isAdmin?`<td><button onclick="removeStudent('${s._fid}')" style="background:none;border:none;color:${T.red};cursor:pointer;font-size:14px">✕</button></td>`:""}
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table></div>
+    </div>`:""}`;
+
+  // ── BULK TAB
+  const bulkTab=`<div class="card">
+    <div style="font-weight:700;font-size:15px;margin-bottom:4px">Bulk CSV Import</div>
+    <div style="font-size:12px;color:${T.muted};margin-bottom:14px">Each student is allocated instantly using live counts</div>
+    <button class="btn" onclick="dlTemplate()" style="background:${T.accent};margin-bottom:14px">↓ Download Template</button>
+    <div style="background:${T.bg};border:1px solid ${T.border};border-radius:6px;padding:12px;margin-bottom:12px;font-size:11px;color:${T.muted};line-height:2">
+      <b style="color:${T.green}">FORMAT: </b>Name, Grade, Section, Pref1, Pref1Activity, Pref2, Pref2Activity, Pref3, Pref3Activity, Teacher<br>
+      <b style="color:${T.amber}">GRADES: </b>Nursery/BV1 · UKG/BV2 · KG/BV3 · I-V (Seg A) · VI-VII (Seg B) · VIII-IX (Seg C)
+    </div>
+    <label class="lbl">PASTE CSV DATA</label>
+    <textarea style="height:200px;resize:vertical;font-size:12px;line-height:1.6" oninput="csvText=this.value" placeholder="Name,Grade,Section,...">${csvText}</textarea>
+    ${csvErr?`<div style="color:${T.red};font-size:11px;margin-top:5px">⚠ ${csvErr}</div>`:""}
+    <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="btnO" onclick="csvText='';render()">Clear</button>
+      <button class="btn" onclick="importCSV()" style="background:${T.accent}" ${!csvText.trim()?"disabled":""}>Import & Allocate All</button>
+    </div>
+  </div>`;
+
+  // ── RESULTS TAB (admin only)
+  const filtered=students.filter(r=>{
+    const s=getSegment(r.grade);
+    if(fSeg!=="ALL"&&s!==fSeg) return false;
+    if(fGrade!=="ALL"&&r.grade!==fGrade) return false;
+    if(fStatus==="1ST"&&r.prefUsed!=="1st") return false;
+    if(fStatus==="2ND"&&r.prefUsed!=="2nd") return false;
+    if(fStatus==="3RD"&&r.prefUsed!=="3rd") return false;
+    if(fStatus==="ADMIN"&&r.prefUsed!=="admin") return false;
+    if(fStatus==="FAIL"&&r.allocatedClub) return false;
+    const q=fSearch.toLowerCase();
+    if(q&&!r.name.toLowerCase().includes(q)&&!r.grade.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  const resultsTab=students.length===0
+    ?`<div class="card" style="text-align:center;padding:60px"><div style="font-size:40px;margin-bottom:10px">📊</div><div style="color:${T.muted}">No students entered yet</div></div>`
+    :`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+      ${[["TOTAL",total,T.text],["1ST ✓",g1,T.green],["2ND",g2,T.accent],["3RD",g3,T.amber],["ADMIN",ga,T.purple],["UNALLOC",gf,T.red]].map(([l,v,c])=>`
+        <div class="stat"><div style="font-size:28px;font-weight:800;color:${c}">${v}</div><div style="font-size:9px;color:${T.muted};letter-spacing:1px">${l}</div>${total>0?`<div style="font-size:10px;color:${c};margin-top:2px">${Math.round(v/total*100)}%</div>`:""}</div>
+      `).join("")}
+    </div>
+    ${gf>0?`<div style="background:${T.red}11;border:1px solid ${T.red}33;border-radius:8px;padding:10px 16px;margin-bottom:12px;font-size:12px;color:${T.red}">⚠ <b>${gf} student${gf>1?"s":""}</b> unallocated — export for manual review</div>`:""}
+    <div class="card" style="padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      <input style="width:180px" placeholder="Search…" value="${fSearch}" oninput="fSearch=this.value;render()"/>
+      <select style="width:150px" onchange="fSeg=this.value;fGrade='ALL';render()">
+        <option value="ALL" ${fSeg==="ALL"?"selected":""}>All Segments</option>
+        ${["A","B","C"].map(s=>`<option value="${s}" ${fSeg===s?"selected":""}>Segment ${s}</option>`).join("")}
+      </select>
+      <select style="width:120px" onchange="fGrade=this.value;render()">
+        <option value="ALL">All Grades</option>
+        ${usedGrades.map(g=>`<option value="${g}" ${fGrade===g?"selected":""}>${g}</option>`).join("")}
+      </select>
+      <select style="width:160px" onchange="fStatus=this.value;render()">
+        <option value="ALL" ${fStatus==="ALL"?"selected":""}>All Statuses</option>
+        <option value="1ST" ${fStatus==="1ST"?"selected":""}>1st Preference</option>
+        <option value="2ND" ${fStatus==="2ND"?"selected":""}>2nd Preference</option>
+        <option value="3RD" ${fStatus==="3RD"?"selected":""}>3rd Preference</option>
+        <option value="ADMIN" ${fStatus==="ADMIN"?"selected":""}>Admin Allocated</option>
+        <option value="FAIL" ${fStatus==="FAIL"?"selected":""}>Unallocated</option>
+      </select>
+      <div style="margin-left:auto;display:flex;gap:8px">
+        <button class="btn" onclick="exportMaster()" style="background:${T.green}">↓ Export All</button>
+        <button class="btn btn-sm" onclick="exportUnallocated()" style="background:${T.red}">↓ Unalloc</button>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:12px;color:${T.muted};margin-bottom:10px">Showing ${filtered.length} of ${total}</div>
+      <div class="overflow"><table>
+        <thead><tr>${["Name","Grade","Sec","Pref1","Pref2","Pref3","✦ Allocated","✦ Activity","✦ Status","Teacher"].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
+        <tbody>
+          ${filtered.length===0?`<tr><td colspan="10" style="text-align:center;color:${T.muted};padding:28px">No records match</td></tr>`:""}
+          ${filtered.map(r=>{
+            const club=getClub(r.allocatedClub);
+            const act=r.allocatedActivity?getActivity(r.allocatedClub,r.allocatedActivity):null;
+            return `<tr style="${!r.allocatedClub?"background:"+T.red+"0d":""}">
+              <td style="font-weight:600">${r.name}</td>
+              <td><span style="${chip(T.accent)}">${r.grade}</span></td>
+              <td>${r.section||"—"}</td>
+              <td><span style="${chip(T.green)}">${r.pref1||"—"}</span></td>
+              <td><span style="${chip(T.amber)}">${r.pref2||"—"}</span></td>
+              <td><span style="${chip(T.purple)}">${r.pref3||"—"}</span></td>
+              <td style="font-weight:600;color:${club?T.text:T.red}">${club?`${club.id}: ${club.name}`:"UNALLOCATED"}</td>
+              <td style="color:${T.muted}">${act?act.name:"—"}</td>
+              <td><span style="${chip(RC(r.prefUsed))}">${r.prefUsed==="admin"?"Admin":r.prefUsed?r.prefUsed+" pref":r.reason||"—"}</span></td>
+              <td style="color:${T.muted};font-size:11px">${r.addedBy||"—"}</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table></div>
+    </div>`;
+
+  // ── EXPORTS TAB
+  const exportsTab=`<div class="grid3">
+    ${[
+      {title:"Master List",desc:"All students with full allocation details",color:T.accent,fn:"exportMaster()",icon:"📋"},
+      {title:"Club-wise Lists",desc:"Each club's full roster with activities",color:T.green,fn:"exportClubWise()",icon:"🏫"},
+      {title:"Manual Review",desc:"Unallocated students only",color:T.red,fn:"exportUnallocated()",icon:"⚠️"},
+    ].map(ex=>`<div class="card" style="margin-bottom:0;border-left:3px solid ${ex.color}">
+      <div style="font-size:24px;margin-bottom:8px">${ex.icon}</div>
+      <div style="font-weight:700;font-size:13px;margin-bottom:4px">${ex.title}</div>
+      <div style="font-size:12px;color:${T.muted};margin-bottom:14px">${ex.desc}</div>
+      <button class="btn" onclick="${ex.fn}" style="background:${ex.color}">↓ Download CSV</button>
+    </div>`).join("")}
+  </div>`;
+
+  // ── CAPACITY TAB
+  const capacityTab=`
+    <div class="card" style="padding:12px 18px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-weight:700;font-size:15px;margin-bottom:2px">Live Seat Availability</div>
+          <div style="font-size:12px;color:${T.muted}">Real-time Firestore sync · ${total} students allocated</div>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <span style="${chip(T.green)}">■ Available</span>
+          <span style="${chip(T.amber)}">■ Filling (75%+)</span>
+          <span style="${chip(T.red)}">■ Full</span>
+        </div>
+      </div>
+    </div>
+    ${["A","B","C"].map(sg=>`
+      <div style="margin-bottom:24px">
+        <div style="font-size:11px;color:${T.muted};letter-spacing:2px;font-weight:700;margin-bottom:10px;border-bottom:1px solid ${T.border};padding-bottom:6px">
+          SEGMENT ${sg} — ${{"A":"NURSERY – GRADE V","B":"GRADES VI–VII","C":"VIII–IX"}[sg]}
+        </div>
+        <div class="grid4">
+          ${CLUBS[sg].map(club=>{
+            const n=cc[club.id]||0;
+            const pct=Math.round((n/club.cap)*100);
+            const col=pct>=100?T.red:pct>=75?T.amber:T.green;
+            return `<div class="card" style="margin-bottom:0;padding:14px 16px;border-top:3px solid ${col}">
+              <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+                <span style="font-weight:700;font-size:13px">${club.id}: ${club.name}</span>
+                <span style="font-size:12px;font-weight:800;color:${col}">${n}/${club.cap}</span>
+              </div>
+              ${capBar(n,club.cap)}
+              ${club.activities?`<div style="margin-top:10px;border-top:1px solid ${T.border};padding-top:10px">
+                <div style="font-size:10px;color:${T.muted};letter-spacing:1px;font-weight:700;margin-bottom:8px">ACTIVITIES:</div>
+                ${club.activities.map(a=>`<div style="margin-bottom:10px">${capBar(ac[a.id]||0,a.cap,a.name,true)}</div>`).join("")}
+              </div>`:""}
+            </div>`;
+          }).join("")}
+        </div>
+      </div>
+    `).join("")}`;
+
+  // ── GUIDE TAB
+  const guideTab=`<div class="grid3">
+    ${[
+      {n:"01",c:T.accent,t:"FIREBASE SETUP",b:["Open this HTML file in any text editor (Notepad, VS Code)","Find the FIREBASE_CONFIG section near the top","Replace each REPLACE_WITH_YOUR_... value with your actual Firebase project keys","Save the file — it's now connected to your live database","Only someone with your Firebase account can change the database rules or data"]},
+      {n:"02",c:T.green,t:"NETLIFY DEPLOYMENT",b:["Go to netlify.com and create a free account","Click Add New Site → Deploy Manually","Drag this HTML file into the upload box","Your app goes live in ~30 seconds","To update the app: drag the new file again — only you can do this","Share the plain URL with teachers; keep ?admin=true URL private"]},
+      {n:"03",c:T.amber,t:"INSTANT ALLOCATION",b:["Each student is allocated to a club the moment you click '+ Add & Allocate'","If 1st preference is full, system auto-tries 2nd, then 3rd","If all 3 are full, administrative allocation finds the best available slot","Toast notification confirms exactly which club they got and which preference was used","Live capacity warnings appear on the form before you submit"]},
+      {n:"04",c:T.purple,t:"READING THE TABLE",b:["GREEN chip = 1st preference honored","BLUE chip = 2nd preference used (1st was full)","AMBER chip = 3rd preference used","PURPLE chip = administratively allocated","RED row = unallocated — no capacity, manual review needed","The ✦ columns show the final authoritative allocation"]},
+      {n:"05",c:T.teal,t:"EXPORTS & REPORTS",b:["Admin tab: 📁 Export has three reports","Master List = every student, one row per student, CSV for Excel","Club-wise = each club's roster + activity breakdowns in one file","Manual Review = only unallocated students for follow-up","Export at any time — no need to wait for data entry to finish","Open CSVs in Excel or Google Sheets directly"]},
+      {n:"06",c:T.red,t:"SECURITY MODEL",b:["Algorithm lives in this HTML file — only you can change it by editing and redeploying","Firebase rules allow teachers to ADD students but not modify allocations","Admin features (delete, clear, export) only visible on ?admin=true URL","Keep your admin URL private — share plain URL with teachers","You can see all data anytime at firebase.google.com → Firestore"]},
+    ].map(card=>`<div class="card" style="border-left:3px solid ${card.c};padding:16px 18px">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
+        <span style="font-size:22px;font-weight:900;color:${card.c}">${card.n}</span>
+        <span style="font-weight:700;font-size:12px;letter-spacing:.5px">${card.t}</span>
+      </div>
+      <ul style="list-style:none">
+        ${card.b.map(b=>`<li style="font-size:12px;color:${T.muted};margin-bottom:7px;padding-left:10px;border-left:2px solid ${T.border};line-height:1.6">${b}</li>`).join("")}
+      </ul>
+    </div>`).join("")}
+  </div>`;
+
+  const tabContent={
+    entry: entryTab,
+    bulk: bulkTab,
+    results: isAdmin?resultsTab:`<div class="card" style="text-align:center;padding:40px;color:${T.muted}">Admin access required</div>`,
+    exports: isAdmin?exportsTab:`<div class="card" style="text-align:center;padding:40px;color:${T.muted}">Admin access required</div>`,
+    capacity: capacityTab,
+    guide: guideTab
+  };
+
+  return `${toastHTML}${hdr}<div style="max-width:1320px;margin:0 auto;padding:22px 18px">${configBanner}${tabContent[tab]||""}</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BIND EVENTS & GLOBAL FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+function bindEvents(){}
+
+window.setTab=v=>{ tab=v; render(); };
+window.setFormField=(k,v)=>{ form[k]=v; render(); };
+window.setGrade=v=>{ form={...form,grade:v,pref1:"",pref1Activity:"",pref2:"",pref2Activity:"",pref3:"",pref3Activity:""}; render(); };
+window.setPref=(k,v)=>{
+  const actKey=k.replace("pref","pref")+"Activity";
+  const m={...form,[k]:v};
+  if(k==="pref1") m.pref1Activity="";
+  if(k==="pref2") m.pref2Activity="";
+  if(k==="pref3") m.pref3Activity="";
+  form=m; render();
+};
+window.addStudent=addStudent;
+window.removeStudent=removeStudent;
+window.clearAll=clearAll;
+window.importCSV=importCSV;
+window.exportMaster=exportMaster;
+window.exportClubWise=exportClubWise;
+window.exportUnallocated=exportUnallocated;
+window.dlTemplate=()=>dlCSV("Template_GDGoenka.csv",[
+  `"Student Name","Grade","Section","Pref1","Pref1Activity","Pref2","Pref2Activity","Pref3","Pref3Activity","Teacher Name"`,
+  `"Aarav Sharma","VI","A","B1","","B3","","B5","","Ms. Das"`,
+  `"Priya Roy","VII","B","B7","B7-Western","B6","B6-Yoga","B2","B2-Debate","Mr. Sen"`
+]);
+window.render=render;
+
+// Initial render
+render();
+</script>
+
+<style id="main-css"></style>
+</head>
+<body>
+<div id="app" style="min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:#0D1117;color:#8B949E;font-family:system-ui">
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+  <div style="width:38px;height:38px;border:3px solid #30363D;border-top:3px solid #2F81F7;border-radius:50%;animation:spin 1s linear infinite"></div>
+  <div style="font-size:12px">Loading…</div>
+</div>
+<script>
+  // Inject CSS after module loads
+  document.getElementById("main-css").textContent = `*{box-sizing:border-box;margin:0;padding:0}body{background:#0D1117;color:#E6EDF3;font-family:'Segoe UI',system-ui,sans-serif;font-size:14px}button{cursor:pointer;font-family:inherit}button:hover{opacity:.85}select,input,textarea{background:#0D1117;color:#E6EDF3;border:1px solid #30363D;border-radius:6px;padding:8px 11px;font-family:inherit;font-size:13px;width:100%;outline:none}select:focus,input:focus,textarea:focus{border-color:#2F81F7}table{width:100%;border-collapse:collapse}th{background:#1C2128;color:#8B949E;padding:8px 12px;text-align:left;font-size:10px;letter-spacing:1px;border-bottom:1px solid #30363D;white-space:nowrap}td{padding:8px 12px;border-bottom:1px solid #30363D20;font-size:12px;vertical-align:middle}tr:hover td{background:#1C212860}::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-thumb{background:#30363D;border-radius:3px}@keyframes spin{to{transform:rotate(360deg)}}@keyframes slideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}.card{background:#161B22;border:1px solid #30363D;border-radius:8px;padding:18px 22px;margin-bottom:16px}.lbl{font-size:11px;color:#8B949E;letter-spacing:.8px;margin-bottom:5px;display:block;font-weight:600}.btn{color:#fff;border:none;border-radius:6px;padding:8px 16px;font-weight:700;font-size:12px;white-space:nowrap}.btn-sm{padding:5px 12px;font-size:11px}.btnO{background:transparent;border:1px solid #30363D;border-radius:6px;padding:7px 14px;font-size:12px;color:#8B949E}.tab{padding:6px 14px;border:none;border-radius:6px;font-size:12px;transition:.15s}.grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}.grid3{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}.grid4{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}.stat{background:#161B22;border:1px solid #30363D;border-radius:8px;padding:12px 18px;flex:1;min-width:80px}.overflow{overflow-x:auto}`;
+</script>
+</body>
+</html>
