@@ -33,15 +33,13 @@ tr:hover td{background:#1C212860}
 </style>
 </head>
 <body>
-
 <div id="root"></div>
-
 <script type="module">
 import { initializeApp }       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy, writeBatch, getDocs }
                                from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// ── FIREBASE CONFIG ──────────────────────────────────────────────────────────
+// ── FIREBASE ─────────────────────────────────────────────────────────────────
 const app = initializeApp({
   apiKey:            "AIzaSyAdRgwlrX6mOuUGBmlM00JQC-73HkmVXtM",
   authDomain:        "gd-goenka-clubs-5b00d.firebaseapp.com",
@@ -53,7 +51,7 @@ const app = initializeApp({
 const db  = getFirestore(app);
 const COL = collection(db, "students");
 
-// ── CLUB DATA ────────────────────────────────────────────────────────────────
+// ── CLUB DATA ─────────────────────────────────────────────────────────────────
 const CLUBS = {
   A:[
     {id:"A1",name:"Art Club",cap:225},
@@ -129,9 +127,10 @@ const CLUBS = {
     ]},
   ]
 };
-const ALL  = Object.values(CLUBS).flat();
+const ALL    = Object.values(CLUBS).flat();
 const GRADES = ["Nursery/BV1","UKG/BV2","KG/BV3","I","II","III","IV","V","VI","VII","VIII","IX"];
 
+// ── HELPERS ───────────────────────────────────────────────────────────────────
 function seg(g){
   if(["Nursery/BV1","UKG/BV2","KG/BV3","I","II","III","IV","V"].includes(g)) return "A";
   if(["VI","VII"].includes(g)) return "B";
@@ -140,7 +139,28 @@ function seg(g){
 }
 const gClub = id => ALL.find(c=>c.id===id);
 const gAct  = (cid,aid) => gClub(cid)?.acts?.find(a=>a.id===aid);
+const isAdmin = new URLSearchParams(location.search).get("admin")==="true";
+const C = {bg:"#0D1117",card:"#161B22",bdr:"#30363D",hd:"#1C2128",acc:"#2F81F7",grn:"#3FB950",amb:"#D29922",red:"#F85149",pur:"#BC8CFF",teal:"#39C5CF",txt:"#E6EDF3",mut:"#8B949E"};
+const rc  = p => p==="1st"?C.grn:p==="2nd"?C.acc:p==="3rd"?C.amb:p==="admin"?C.pur:C.red;
+const chip = (t,c) => `<span class="chip" style="background:${c}22;color:${c};border:1px solid ${c}44">${t}</span>`;
+const btn  = (t,fn,col,sm) => `<button class="btn${sm?" btn-sm":""}" style="background:${col}" onclick="${fn}">${t}</button>`;
 
+function dlCSV(name,rows){
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([rows.join("\n")],{type:"text/csv"}));
+  a.download=name; a.click();
+}
+function parseCSV(txt){
+  const lines=txt.trim().split("\n"),out=[];
+  for(let i=1;i<lines.length;i++){
+    const c=lines[i].split(",").map(x=>x.trim().replace(/^"|"$/g,""));
+    if(!c[0]) continue;
+    out.push({name:c[0],grade:c[1]||"",section:c[2]||"",p1:c[3]||"",a1:c[4]||"",p2:c[5]||"",a2:c[6]||"",p3:c[7]||"",a3:c[8]||"",by:c[9]||"CSV",at:new Date().toISOString()});
+  }
+  return out;
+}
+
+// ── ALLOCATION ALGORITHM (unchanged) ─────────────────────────────────────────
 function counts(list){
   const cc={},ac={};
   ALL.forEach(c=>{ cc[c.id]=0; c.acts?.forEach(a=>{ ac[a.id]=0; }); });
@@ -150,7 +170,6 @@ function counts(list){
   });
   return {cc,ac};
 }
-
 function allocate(s,cc,ac){
   const sg=seg(s.grade);
   if(!sg) return {aC:null,aA:null,pU:null,rsn:"Invalid grade"};
@@ -174,34 +193,18 @@ function allocate(s,cc,ac){
   return {aC:null,aA:null,pU:null,rsn:"No capacity — manual review"};
 }
 
-// ── HELPERS ──────────────────────────────────────────────────────────────────
-const isAdmin = new URLSearchParams(location.search).get("admin")==="true";
-const C = {bg:"#0D1117",card:"#161B22",bdr:"#30363D",hd:"#1C2128",acc:"#2F81F7",grn:"#3FB950",amb:"#D29922",red:"#F85149",pur:"#BC8CFF",txt:"#E6EDF3",mut:"#8B949E"};
-const rc = p => p==="1st"?C.grn:p==="2nd"?C.acc:p==="3rd"?C.amb:p==="admin"?C.pur:C.red;
-const chip=(t,c)=>`<span class="chip" style="background:${c}22;color:${c};border:1px solid ${c}44">${t}</span>`;
-const btn=(t,fn,col,sm)=>`<button class="btn${sm?" btn-sm":""}" style="background:${col}" onclick="${fn}">${t}</button>`;
-
-function dlCSV(name,rows){
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(new Blob([rows.join("\n")],{type:"text/csv"}));
-  a.download=name; a.click();
-}
-
-function parseCSV(txt){
-  const lines=txt.trim().split("\n"), out=[];
-  for(let i=1;i<lines.length;i++){
-    const c=lines[i].split(",").map(x=>x.trim().replace(/^"|"$/g,""));
-    if(!c[0]) continue;
-    out.push({name:c[0],grade:c[1]||"",section:c[2]||"",p1:c[3]||"",a1:c[4]||"",p2:c[5]||"",a2:c[6]||"",p3:c[7]||"",a3:c[8]||"",by:c[9]||"CSV",at:new Date().toISOString()});
-  }
-  return out;
-}
-
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let students=[], tab="entry", toasts=[];
-let form={by:"",name:"",grade:"",sec:"",p1:"",a1:"",p2:"",a2:"",p3:"",a3:""};
+
+// Teacher identity — persists for the full session
+// name, grade & section stay locked until teacher manually changes them
+let teacher = { by:"", grade:"", sec:"" };
+
+// Per-student entry form — only student name + preferences reset after each entry
+let form = { name:"", p1:"", a1:"", p2:"", a2:"", p3:"", a3:"" };
+
 let csvTxt="", csvErr="";
-let fSeg="ALL",fSt="ALL",fQ="",fGr="ALL";
+let fSeg="ALL", fSt="ALL", fQ="", fGr="ALL";
 
 // ── FIRESTORE LISTENER ────────────────────────────────────────────────────────
 onSnapshot(query(COL,orderBy("at","asc")), snap=>{
@@ -214,37 +217,67 @@ function toast(msg,col=C.grn,sub=""){
   const id=Date.now()+Math.random();
   toasts.push({id,msg,col,sub});
   render();
-  setTimeout(()=>{ toasts=toasts.filter(t=>t.id!==id); render(); },4500);
+  setTimeout(()=>{ toasts=toasts.filter(t=>t.id!==id); render(); },5000);
 }
 
-// ── ACTIONS ───────────────────────────────────────────────────────────────────
+// ── DUPLICATE CHECK ───────────────────────────────────────────────────────────
+// Checks if a student with the same name AND same grade already exists in the DB
+function isDuplicate(name, grade){
+  return students.some(s =>
+    s.name.trim().toLowerCase() === name.trim().toLowerCase() &&
+    s.grade === grade
+  );
+}
+
+// ── ADD STUDENT ───────────────────────────────────────────────────────────────
 async function addStudent(){
-  if(!form.by||!form.name||!form.grade||!form.p1) return;
+  if(!teacher.by||!form.name||!teacher.grade||!form.p1) return;
   const club=gClub(form.p1);
-  if(club?.acts&&!form.a1){ toast("Select an activity for 1st preference",C.amb); return; }
+  if(club?.acts&&!form.a1){ toast("Please select an activity for 1st preference",C.amb); return; }
+
+  // Duplicate guard
+  if(isDuplicate(form.name, teacher.grade)){
+    toast(
+      `⚠ "${form.name}" from Grade ${teacher.grade} is already in the database!`,
+      C.red,
+      "Please verify — if this is a different student, check the spelling or contact admin."
+    );
+    return;
+  }
+
   const {cc,ac}=counts(students);
-  const al=allocate(form,cc,ac);
-  const s={name:form.name,grade:form.grade,section:form.sec||"",
-    p1:form.p1||"",a1:form.a1||"",p2:form.p2||"",a2:form.a2||"",p3:form.p3||"",a3:form.a3||"",
-    by:form.by,at:new Date().toISOString(),...al};
+  const al=allocate({...form, grade:teacher.grade, section:teacher.sec}, cc, ac);
+  const s={
+    name:form.name, grade:teacher.grade, section:teacher.sec||"",
+    p1:form.p1||"", a1:form.a1||"",
+    p2:form.p2||"", a2:form.a2||"",
+    p3:form.p3||"", a3:form.a3||"",
+    by:teacher.by, at:new Date().toISOString(), ...al
+  };
   try{
     await addDoc(COL,s);
     const cl=gClub(s.aC), ac2=s.aA?gAct(s.aC,s.aA):null;
     if(cl){
-      const lbl=s.pU==="admin"?"Administratively":s.pU==="1st"?"✓ 1st preference":s.pU==="2nd"?"↓ 2nd (1st was full)":"↓ 3rd (1st & 2nd full)";
+      const lbl=s.pU==="admin"?"Administratively allocated":
+        s.pU==="1st"?"✓ 1st preference honored":
+        s.pU==="2nd"?"↓ 2nd preference used (1st was full)":
+        "↓ 3rd preference used (1st & 2nd were full)";
       toast(`${s.name} → ${cl.name}${ac2?" · "+ac2.name:""}`,rc(s.pU),lbl);
-    } else toast(`${s.name} — no seats, manual review needed`,C.red);
-    form={...form,name:"",sec:"",p1:"",a1:"",p2:"",a2:"",p3:"",a3:""};
+    } else {
+      toast(`${s.name} — no seats available, manual review needed`,C.red);
+    }
+    // Reset ONLY student-specific fields; teacher identity stays
+    form={name:"",p1:"",a1:"",p2:"",a2:"",p3:"",a3:""};
     render();
   } catch(e){ toast("Save failed: "+e.message,C.red); }
 }
 
+// ── ADMIN ACTIONS ─────────────────────────────────────────────────────────────
 async function delStudent(fid){
   if(!isAdmin) return;
-  try{ await deleteDoc(doc(db,"students",fid)); toast("Removed",C.amb); }
+  try{ await deleteDoc(doc(db,"students",fid)); toast("Entry removed",C.amb); }
   catch(e){ toast("Delete failed: "+e.message,C.red); }
 }
-
 async function clearAll(){
   if(!isAdmin||!confirm("Delete ALL student data? Cannot be undone.")) return;
   const snap=await getDocs(COL);
@@ -252,7 +285,6 @@ async function clearAll(){
   snap.docs.forEach(d=>b.delete(d.ref));
   await b.commit(); toast("All data cleared",C.amb);
 }
-
 async function importCSV(){
   csvErr="";
   const rows=parseCSV(csvTxt);
@@ -272,10 +304,11 @@ async function importCSV(){
   render();
 }
 
+// ── EXPORTS ───────────────────────────────────────────────────────────────────
 function exportMaster(){
   const hdr=`"#","Name","Grade","Section","Pref1","Act1","Pref2","Act2","Pref3","Act3","Allocated Club","Activity","Pref Used","Status","Teacher","Time"`;
   const rows=students.map((r,i)=>{
-    const cl=gClub(r.aC), ac=r.aA?gAct(r.aC,r.aA):null;
+    const cl=gClub(r.aC),ac=r.aA?gAct(r.aC,r.aA):null;
     return [i+1,r.name,r.grade,r.section||"",r.p1||"",r.a1||"",r.p2||"",r.a2||"",r.p3||"",r.a3||"",
       cl?cl.name:"UNALLOCATED",ac?ac.name:"",r.pU||"",r.rsn||"",r.by||"",
       r.at?new Date(r.at).toLocaleString():""].map(v=>`"${v}"`).join(",");
@@ -283,16 +316,15 @@ function exportMaster(){
   dlCSV("GDGoenka_Master_2026-27.csv",[hdr,...rows]);
   toast("✓ Master list exported");
 }
-
 function exportClubWise(){
   const {cc,ac}=counts(students);
   const rows=[`"GD GOENKA DAKSHINESWAR — CLUB-WISE 2026-27"`,`"${new Date().toLocaleString()}"`,`""`];
   ["A","B","C"].forEach(sg=>{
     CLUBS[sg].forEach(cl=>{
       const mem=students.filter(r=>r.aC===cl.id);
-      rows.push(`""`,`"${sg} — ${cl.id}: ${cl.name} (${mem.length}/${cl.cap})"`);
+      rows.push(`""`,`"SEGMENT ${sg} — ${cl.id}: ${cl.name} (${mem.length}/${cl.cap})"`);
       cl.acts?.forEach(a=>rows.push(`"  ${a.name}: ${ac[a.id]||0}/${a.cap}"`));
-      rows.push(`"#","Name","Grade","Section","Activity","Pref","Teacher"`);
+      rows.push(`"#","Name","Grade","Section","Activity","Pref Used","Teacher"`);
       mem.forEach((r,i)=>{ const a=r.aA?gAct(r.aC,r.aA):null; rows.push([i+1,r.name,r.grade,r.section||"",a?a.name:"",r.pU||"",r.by||""].map(v=>`"${v}"`).join(",")); });
       if(!mem.length) rows.push(`"(none)"`);
     });
@@ -300,25 +332,56 @@ function exportClubWise(){
   dlCSV("GDGoenka_ClubWise_2026-27.csv",rows);
   toast("✓ Club-wise exported");
 }
-
+function exportGradeWise(){
+  const rows=[`"GD GOENKA DAKSHINESWAR — GRADE-WISE 2026-27"`,`"${new Date().toLocaleString()}"`,`""`];
+  GRADES.forEach(gr=>{
+    const mem=students.filter(r=>r.grade===gr);
+    if(!mem.length) return;
+    rows.push(`""`,`"GRADE: ${gr} (${mem.length} students)"`);
+    rows.push(`"#","Name","Section","Allocated Club","Activity","Pref Used","Teacher"`);
+    mem.forEach((r,i)=>{ const cl=gClub(r.aC),a=r.aA?gAct(r.aC,r.aA):null; rows.push([i+1,r.name,r.section||"",cl?cl.name:"UNALLOCATED",a?a.name:"",r.pU||"",r.by||""].map(v=>`"${v}"`).join(",")); });
+  });
+  dlCSV("GDGoenka_GradeWise_2026-27.csv",rows);
+  toast("✓ Grade-wise exported");
+}
+function exportClubGradeWise(){
+  const rows=[`"GD GOENKA DAKSHINESWAR — CLUB + GRADE WISE 2026-27"`,`"${new Date().toLocaleString()}"`,`""`];
+  ["A","B","C"].forEach(sg=>{
+    CLUBS[sg].forEach(cl=>{
+      const clubMem=students.filter(r=>r.aC===cl.id);
+      if(!clubMem.length) return;
+      rows.push(`""`,`"SEGMENT ${sg} — ${cl.id}: ${cl.name} (${clubMem.length} students)"`);
+      const gradesInClub=[...new Set(clubMem.map(r=>r.grade))].sort((a,b)=>GRADES.indexOf(a)-GRADES.indexOf(b));
+      gradesInClub.forEach(gr=>{
+        const mem=clubMem.filter(r=>r.grade===gr);
+        rows.push(`""`,`"  Grade: ${gr} (${mem.length} students)"`);
+        rows.push(`"#","Name","Section","Activity","Pref Used","Teacher"`);
+        mem.forEach((r,i)=>{ const a=r.aA?gAct(r.aC,r.aA):null; rows.push([i+1,r.name,r.section||"",a?a.name:"",r.pU||"",r.by||""].map(v=>`"${v}"`).join(",")); });
+      });
+    });
+  });
+  dlCSV("GDGoenka_ClubGradeWise_2026-27.csv",rows);
+  toast("✓ Club + Grade-wise exported");
+}
 function exportUnalloc(){
   const bad=students.filter(r=>!r.aC);
-  if(!bad.length){ toast("No unallocated students!"); return; }
+  if(!bad.length){ toast("No unallocated students — great!"); return; }
   const hdr=`"Name","Grade","Section","Pref1","Pref2","Pref3","Reason","Teacher"`;
   dlCSV("GDGoenka_ManualReview.csv",[hdr,...bad.map(r=>[r.name,r.grade,r.section||"",r.p1||"",r.p2||"",r.p3||"",r.rsn||"",r.by||""].map(v=>`"${v}"`).join(","))]);
-  toast("✓ Review list exported");
+  toast("✓ Manual review list exported");
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
-function render(){
-  document.getElementById("root").innerHTML = buildUI();
-}
+function render(){ document.getElementById("root").innerHTML=buildUI(); }
 
 function capBar(n,cap,lbl,sm){
   const p=Math.min(100,Math.round(n/cap*100));
   const col=p>=100?C.red:p>=75?C.amb:C.grn;
   return `<div style="margin-bottom:${sm?6:0}px">
-    ${lbl?`<div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:${sm?10:11}px;color:${C.mut}">${lbl}</span><span style="font-size:${sm?10:11}px;font-weight:700;color:${col}">${n}/${cap}</span></div>`:""}
+    ${lbl?`<div style="display:flex;justify-content:space-between;margin-bottom:3px">
+      <span style="font-size:${sm?10:11}px;color:${C.mut}">${lbl}</span>
+      <span style="font-size:${sm?10:11}px;font-weight:700;color:${col}">${n}/${cap}</span>
+    </div>`:""}
     <div style="background:${C.bdr};border-radius:3px;height:${sm?4:6}px">
       <div style="width:${p}%;height:100%;background:${col};border-radius:3px"></div>
     </div>
@@ -328,7 +391,7 @@ function capBar(n,cap,lbl,sm){
 
 function buildUI(){
   const {cc,ac}=counts(students);
-  const sg=seg(form.grade), sgClubs=sg?CLUBS[sg]:[];
+  const sg=seg(teacher.grade), sgClubs=sg?CLUBS[sg]:[];
   const c1=gClub(form.p1), c2=gClub(form.p2), c3=gClub(form.p3);
   const total=students.length;
   const g1=students.filter(r=>r.pU==="1st").length;
@@ -336,6 +399,11 @@ function buildUI(){
   const g3=students.filter(r=>r.pU==="3rd").length;
   const ga=students.filter(r=>r.pU==="admin").length;
   const gf=students.filter(r=>!r.aC).length;
+
+  // Only this teacher's entries
+  const myEntries=teacher.by
+    ? [...students].filter(s=>s.by===teacher.by).reverse()
+    : [];
 
   const cFull=id=>{ const cl=gClub(id); if(!cl) return false; return cl.acts?cl.acts.every(a=>(ac[a.id]||0)>=a.cap):(cc[id]||0)>=cl.cap; };
   const aFull=id=>{ const a=ALL.flatMap(c=>c.acts||[]).find(a=>a.id===id); return a?(ac[id]||0)>=a.cap:false; };
@@ -348,11 +416,11 @@ function buildUI(){
 
   const TABS=isAdmin
     ?[["entry","📝 Entry"],["bulk","📤 Bulk"],["results","📊 Results"],["exports","📁 Export"],["capacity","🏫 Capacity"],["guide","📖 Guide"]]
-    :[["entry","📝 Entry"],["bulk","📤 Bulk"],["capacity","🏫 Capacity"],["guide","📖 Guide"]];
+    :[["entry","📝 Entry"],["capacity","🏫 Live Capacity"],["guide","📖 Guide"]];
 
   // TOASTS
   const toastHTML=`<div style="position:fixed;top:14px;right:14px;z-index:999;display:flex;flex-direction:column;gap:8px;align-items:flex-end">
-    ${toasts.map(t=>`<div style="background:${t.col};color:#fff;border-radius:8px;padding:10px 16px;font-size:12px;font-weight:600;animation:slideIn .25s ease;box-shadow:0 4px 20px ${t.col}55;max-width:320px">
+    ${toasts.map(t=>`<div style="background:${t.col};color:#fff;border-radius:8px;padding:10px 16px;font-size:12px;font-weight:600;animation:slideIn .25s ease;box-shadow:0 4px 20px ${t.col}55;max-width:340px">
       <div>${t.msg}</div>${t.sub?`<div style="font-size:10px;opacity:.85;margin-top:3px">${t.sub}</div>`:""}
     </div>`).join("")}
   </div>`;
@@ -363,7 +431,7 @@ function buildUI(){
       <div style="width:34px;height:34px;background:linear-gradient(135deg,${C.acc},${C.pur});border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#fff">GD</div>
       <div>
         <div style="font-weight:700;font-size:15px">GD Goenka · Club Allocation 2026-27${isAdmin?` <span style="font-size:11px;color:${C.amb}">[ADMIN]</span>`:""}</div>
-        <div style="font-size:11px;color:${C.mut}">${total} students · live Firebase sync</div>
+        <div style="font-size:11px;color:${C.mut}">${total} students enrolled · live Firebase sync</div>
       </div>
     </div>
     <div style="display:flex;gap:3px;flex-wrap:wrap">
@@ -371,7 +439,33 @@ function buildUI(){
     </div>
   </div>`;
 
-  // ENTRY TAB
+  // ── TEACHER IDENTITY PANEL ──────────────────────────────────────────────────
+  // Shown at top of entry — teacher fills this once, stays for full session
+  const identityPanel=`<div class="card" style="border-left:3px solid ${C.acc};padding:14px 18px;margin-bottom:12px">
+    <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:${C.acc}">👤 Your Identity — set once, stays for your full session</div>
+    <div class="g2">
+      <div>
+        <label class="lbl">YOUR NAME *</label>
+        <input value="${teacher.by}" oninput="ST_by(this.value)" onblur="ST_byR(this.value)" placeholder="Ms. Banerjee" style="border-color:${!teacher.by?C.amb:C.bdr}"/>
+        ${!teacher.by?`<div style="font-size:10px;color:${C.amb};margin-top:3px">Required before adding students</div>`:""}
+      </div>
+      <div>
+        <label class="lbl">GRADE YOU ARE ENTERING *</label>
+        <select onchange="ST_grade(this.value)" style="border-color:${!teacher.grade?C.amb:C.bdr}">
+          <option value="">— Select Grade —</option>
+          ${GRADES.map(g=>`<option value="${g}"${teacher.grade===g?" selected":""}>${g}</option>`).join("")}
+        </select>
+        ${!teacher.grade?`<div style="font-size:10px;color:${C.amb};margin-top:3px">Required before adding students</div>`:""}
+      </div>
+      <div>
+        <label class="lbl">SECTION</label>
+        <input value="${teacher.sec}" oninput="ST_sec(this.value)" onblur="ST_secR(this.value)" placeholder="A / B / C" maxlength="2"/>
+      </div>
+    </div>
+    ${teacher.by&&teacher.grade?`<div style="margin-top:10px;font-size:11px;color:${C.grn}">✓ Entering students for <b>Grade ${teacher.grade}${teacher.sec?" · Section "+teacher.sec:""}</b> as <b>${teacher.by}</b></div>`:""}
+  </div>`;
+
+  // ── PREFERENCE ROW ──────────────────────────────────────────────────────────
   function prefRow(pfk,pak,lbl,club){
     const sv=form[pfk],av=form[pak];
     const f1=sv&&!club?.acts&&cFull(sv);
@@ -384,7 +478,7 @@ function buildUI(){
             <option value="">— Select Club —</option>
             ${sgClubs.map(c=>{ const fl=cFull(c.id),sl=sLeft(c.id); return `<option value="${c.id}"${form[pfk]===c.id?" selected":""}>${c.id}: ${c.name}${c.acts?" [+ Activity]":""} · ${fl?"FULL":sl+" left"}</option>`; }).join("")}
           </select>
-          ${f1?`<div style="font-size:10px;color:${C.red};margin-top:3px">🔴 Full — next preference will be tried</div>`:""}
+          ${f1?`<div style="font-size:10px;color:${C.red};margin-top:3px">🔴 Full — next preference will be tried automatically</div>`:""}
         </div>
         ${club?.acts?`<div>
           <label class="lbl">ACTIVITY</label>
@@ -398,74 +492,71 @@ function buildUI(){
     </div>`;
   }
 
+  // ── ENTRY TAB ───────────────────────────────────────────────────────────────
   const entryTab=`
+  ${identityPanel}
   <div class="card">
     <div style="display:flex;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
       <div>
         <div style="font-weight:700;font-size:15px;margin-bottom:3px">Student Entry</div>
-        <div style="font-size:12px;color:${C.mut}">Allocation happens <b style="color:${C.txt}">instantly</b> on submission</div>
+        <div style="font-size:12px;color:${C.mut}">Allocation happens <b style="color:${C.txt}">instantly</b> · enter all 3 preferences even if clubs appear full</div>
       </div>
       ${isAdmin&&total>0?`<button class="btnO" onclick="CA()" style="color:${C.red}">🗑 Clear All</button>`:""}
     </div>
-    <div class="g2" style="margin-bottom:14px">
-      <div><label class="lbl">YOUR NAME (TEACHER) *</label><input value="${form.by}" oninput="SF('by',this.value)" onblur="SFR('by',this.value)" placeholder="Ms. Banerjee"/></div>
-      <div><label class="lbl">STUDENT NAME *</label><input value="${form.name}" oninput="SF('name',this.value)" onblur="SFR('name',this.value)" placeholder="Full name" onkeydown="if(event.key==='Enter')AS()"/></div>
-      <div><label class="lbl">GRADE *</label>
-        <select onchange="SG(this.value)">
-          <option value="">— Select —</option>
-          ${GRADES.map(g=>`<option value="${g}"${form.grade===g?" selected":""}>${g}</option>`).join("")}
-        </select>
-      </div>
-      <div><label class="lbl">SECTION</label><input value="${form.sec}" oninput="SF('sec',this.value)" onblur="SFR('sec',this.value)" placeholder="A / B / C" maxlength="2"/></div>
+    <div style="margin-bottom:14px">
+      <label class="lbl">STUDENT NAME *</label>
+      <input value="${form.name}" oninput="SF('name',this.value)" onblur="SFR('name',this.value)" placeholder="Full name" onkeydown="if(event.key==='Enter')AS()" ${!teacher.by||!teacher.grade?"disabled":""}/>
     </div>
     ${warns.length?`<div style="background:${C.amb}15;border:1px solid ${C.amb}44;border-radius:6px;padding:10px 14px;margin-bottom:14px">
-      <div style="font-size:11px;font-weight:700;color:${C.amb};margin-bottom:5px">⚠ CAPACITY WARNINGS — full options will be skipped</div>
+      <div style="font-size:11px;font-weight:700;color:${C.amb};margin-bottom:5px">⚠ CAPACITY WARNINGS — full options will be skipped automatically</div>
       ${warns.map(w=>`<div style="font-size:11px;color:${C.amb};margin-bottom:2px">• ${w}</div>`).join("")}
     </div>`:""}
     ${prefRow("p1","a1","1ST PREFERENCE *",c1)}
     ${prefRow("p2","a2","2ND PREFERENCE",c2)}
     ${prefRow("p3","a3","3RD PREFERENCE",c3)}
     <div style="margin-top:14px;display:flex;gap:10px;justify-content:flex-end;align-items:center">
-      ${!form.by?`<span style="font-size:11px;color:${C.amb}">⚠ Enter your name first</span>`:""}
-      <button class="btn" onclick="AS()" style="background:${C.acc}" ${!form.name||!form.grade||!form.p1||!form.by?"disabled":""}>+ Add & Allocate</button>
+      ${!teacher.by||!teacher.grade?`<span style="font-size:11px;color:${C.amb}">⚠ Complete your identity above first</span>`:""}
+      <button class="btn" onclick="AS()" style="background:${C.acc}" ${!form.name||!teacher.grade||!form.p1||!teacher.by?"disabled":""}>+ Add & Allocate</button>
     </div>
   </div>
-  ${total>0?`<div class="card">
+
+  ${teacher.by?`<div class="card">
     <div style="display:flex;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;align-items:center">
-      <div style="font-weight:700;font-size:14px">Live Entries <span style="color:${C.mut};font-weight:400;font-size:12px">(${total})</span></div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        ${chip(g1+" × 1st",C.grn)}${chip(g2+" × 2nd",C.acc)}${chip(g3+" × 3rd",C.amb)}${chip(ga+" admin",C.pur)}${gf?chip(gf+" unalloc",C.red):""}
+      <div style="font-weight:700;font-size:14px">Your Entries
+        <span style="color:${C.mut};font-weight:400;font-size:12px"> · ${myEntries.length} student${myEntries.length!==1?"s":""} entered by you</span>
       </div>
+      <div style="font-size:11px;color:${C.mut}">Only your entries are shown here · capacity counts reflect all teachers</div>
     </div>
-    <div class="ov"><table>
-      <thead><tr>${["#","Name","Grade","Sec","P1","P2","P3","✦ Club","✦ Activity","✦ Status","Teacher","Time",...(isAdmin?[""]:[])].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
-      <tbody>
-        ${[...students].reverse().map((s,i)=>{
-          const cl=gClub(s.aC),ac2=s.aA?gAct(s.aC,s.aA):null;
-          return `<tr style="${!s.aC?"background:"+C.red+"0d":""}">
-            <td style="color:${C.mut}">${total-i}</td>
-            <td style="font-weight:600">${s.name}</td>
-            <td>${chip(s.grade,C.acc)}</td>
-            <td>${s.section||"—"}</td>
-            <td>${chip(s.p1||"—",C.grn)}</td>
-            <td>${chip(s.p2||"—",C.amb)}</td>
-            <td>${chip(s.p3||"—",C.pur)}</td>
-            <td style="font-weight:600;color:${cl?C.txt:C.red}">${cl?cl.id+": "+cl.name:"UNALLOCATED"}</td>
-            <td style="color:${C.mut}">${ac2?ac2.name:"—"}</td>
-            <td>${chip(s.pU==="admin"?"Admin":s.pU?s.pU+" pref":s.rsn||"—",rc(s.pU||""))}</td>
-            <td style="color:${C.mut};font-size:11px">${s.by||"—"}</td>
-            <td style="color:${C.mut};font-size:10px">${s.at?new Date(s.at).toLocaleTimeString():"—"}</td>
-            ${isAdmin?`<td><button onclick="DS('${s._id}')" style="background:none;border:none;color:${C.red};font-size:15px;line-height:1">✕</button></td>`:""}
-          </tr>`;
-        }).join("")}
-      </tbody>
-    </table></div>
+    ${myEntries.length===0
+      ?`<div style="text-align:center;padding:28px;color:${C.mut};font-size:12px">No entries yet — add your first student above</div>`
+      :`<div class="ov"><table>
+        <thead><tr>${["#","Name","Grade","Sec","P1","P2","P3","✦ Allocated Club","✦ Activity","✦ Status","Time"].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
+        <tbody>
+          ${myEntries.map((s,i)=>{
+            const cl=gClub(s.aC),ac2=s.aA?gAct(s.aC,s.aA):null;
+            return `<tr style="${!s.aC?"background:"+C.red+"0d":""}">
+              <td style="color:${C.mut}">${myEntries.length-i}</td>
+              <td style="font-weight:600">${s.name}</td>
+              <td>${chip(s.grade,C.acc)}</td>
+              <td>${s.section||"—"}</td>
+              <td>${chip(s.p1||"—",C.grn)}</td>
+              <td>${chip(s.p2||"—",C.amb)}</td>
+              <td>${chip(s.p3||"—",C.pur)}</td>
+              <td style="font-weight:600;color:${cl?C.txt:C.red}">${cl?cl.id+": "+cl.name:"UNALLOCATED"}</td>
+              <td style="color:${C.mut}">${ac2?ac2.name:"—"}</td>
+              <td>${chip(s.pU==="admin"?"Admin":s.pU?s.pU+" pref":s.rsn||"—",rc(s.pU||""))}</td>
+              <td style="color:${C.mut};font-size:10px">${s.at?new Date(s.at).toLocaleTimeString():"—"}</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table></div>`
+    }
   </div>`:""}`;
 
-  // BULK TAB
+  // ── BULK TAB (admin only) ───────────────────────────────────────────────────
   const bulkTab=`<div class="card">
     <div style="font-weight:700;font-size:15px;margin-bottom:4px">Bulk CSV Import</div>
-    <div style="font-size:12px;color:${C.mut};margin-bottom:14px">Each student allocated instantly using live seat counts</div>
+    <div style="font-size:12px;color:${C.mut};margin-bottom:14px">Each student allocated instantly using live seat counts at time of import</div>
     <button class="btn" onclick="DLT()" style="background:${C.acc};margin-bottom:14px">↓ Download Template</button>
     <div style="background:${C.bg};border:1px solid ${C.bdr};border-radius:6px;padding:12px;margin-bottom:12px;font-size:11px;color:${C.mut};line-height:2">
       <b style="color:${C.grn}">FORMAT:</b> Name, Grade, Section, Pref1, Pref1Activity, Pref2, Pref2Activity, Pref3, Pref3Activity, Teacher<br>
@@ -480,7 +571,7 @@ function buildUI(){
     </div>
   </div>`;
 
-  // RESULTS TAB
+  // ── RESULTS TAB (admin only) ────────────────────────────────────────────────
   const usedGr=[...new Set(students.map(r=>r.grade))].sort((a,b)=>GRADES.indexOf(a)-GRADES.indexOf(b));
   const filt=students.filter(r=>{
     const s2=seg(r.grade);
@@ -494,7 +585,6 @@ function buildUI(){
     const q=fQ.toLowerCase();
     return !q||r.name.toLowerCase().includes(q)||r.grade.toLowerCase().includes(q);
   });
-
   const resultsTab=total===0
     ?`<div class="card" style="text-align:center;padding:60px"><div style="font-size:40px;margin-bottom:10px">📊</div><div style="color:${C.mut}">No students yet</div></div>`
     :`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
@@ -505,7 +595,7 @@ function buildUI(){
           ${total>0?`<div style="font-size:10px;color:${c};margin-top:2px">${Math.round(v/total*100)}%</div>`:""}
         </div>`).join("")}
     </div>
-    ${gf>0?`<div style="background:${C.red}11;border:1px solid ${C.red}33;border-radius:8px;padding:10px 16px;margin-bottom:12px;font-size:12px;color:${C.red}">⚠ <b>${gf}</b> unallocated — export for manual review</div>`:""}
+    ${gf>0?`<div style="background:${C.red}11;border:1px solid ${C.red}33;border-radius:8px;padding:10px 16px;margin-bottom:12px;font-size:12px;color:${C.red}">⚠ <b>${gf}</b> student${gf>1?"s":""} unallocated — export Manual Review list</div>`:""}
     <div class="card" style="padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
       <input style="width:180px" placeholder="Search name / grade…" value="${fQ}" oninput="fQ=this.value;render()"/>
       <select style="width:140px" onchange="fSeg=this.value;fGr='ALL';render()">
@@ -532,9 +622,9 @@ function buildUI(){
     <div class="card">
       <div style="font-size:12px;color:${C.mut};margin-bottom:10px">Showing ${filt.length} of ${total}</div>
       <div class="ov"><table>
-        <thead><tr>${["Name","Grade","Sec","P1","P2","P3","✦ Allocated Club","✦ Activity","✦ Status","Teacher"].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
+        <thead><tr>${["Name","Grade","Sec","P1","P2","P3","✦ Allocated Club","✦ Activity","✦ Status","Teacher",...(isAdmin?[""]:[])].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
         <tbody>
-          ${!filt.length?`<tr><td colspan="10" style="text-align:center;color:${C.mut};padding:28px">No records match</td></tr>`:""}
+          ${!filt.length?`<tr><td colspan="11" style="text-align:center;color:${C.mut};padding:28px">No records match</td></tr>`:""}
           ${filt.map(r=>{
             const cl=gClub(r.aC),ac2=r.aA?gAct(r.aC,r.aA):null;
             return `<tr style="${!r.aC?"background:"+C.red+"0d":""}">
@@ -548,18 +638,21 @@ function buildUI(){
               <td style="color:${C.mut}">${ac2?ac2.name:"—"}</td>
               <td>${chip(r.pU==="admin"?"Admin":r.pU?r.pU+" pref":r.rsn||"—",rc(r.pU||""))}</td>
               <td style="color:${C.mut};font-size:11px">${r.by||"—"}</td>
+              ${isAdmin?`<td><button onclick="DS('${r._id}')" style="background:none;border:none;color:${C.red};font-size:15px;line-height:1">✕</button></td>`:""}
             </tr>`;
           }).join("")}
         </tbody>
       </table></div>
     </div>`;
 
-  // EXPORTS TAB
+  // ── EXPORTS TAB ─────────────────────────────────────────────────────────────
   const exportsTab=`<div class="g3">
     ${[
       {icon:"📋",title:"Master List",desc:"Every student · one row each · full allocation details",col:C.acc,fn:"EM()"},
-      {icon:"🏫",title:"Club-wise Lists",desc:"Each club's full roster · activity breakdowns",col:C.grn,fn:"EC()"},
-      {icon:"⚠️",title:"Manual Review",desc:"Only unallocated students · for follow-up",col:C.red,fn:"EU()"},
+      {icon:"🏫",title:"Club-wise Lists",desc:"Grouped by club → full roster per club",col:C.grn,fn:"EC()"},
+      {icon:"🎓",title:"Grade-wise Lists",desc:"Grouped by grade → which club each student got",col:C.pur,fn:"EG()"},
+      {icon:"🏫🎓",title:"Club + Grade-wise",desc:"Each club broken down further by grade",col:C.teal,fn:"ECG()"},
+      {icon:"⚠️",title:"Manual Review",desc:"Only unallocated students · all 3 preferences were full",col:C.red,fn:"EU()"},
     ].map(e=>`<div class="card" style="margin-bottom:0;border-left:3px solid ${e.col}">
       <div style="font-size:24px;margin-bottom:8px">${e.icon}</div>
       <div style="font-weight:700;font-size:13px;margin-bottom:4px">${e.title}</div>
@@ -568,13 +661,13 @@ function buildUI(){
     </div>`).join("")}
   </div>`;
 
-  // CAPACITY TAB
+  // ── CAPACITY TAB ─────────────────────────────────────────────────────────────
   const capacityTab=`
   <div class="card" style="padding:12px 18px;margin-bottom:14px">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
       <div>
         <div style="font-weight:700;font-size:15px;margin-bottom:2px">Live Seat Availability</div>
-        <div style="font-size:12px;color:${C.mut}">Real-time · ${total} students allocated so far</div>
+        <div style="font-size:12px;color:${C.mut}">Real-time · ${total} students allocated so far across all teachers</div>
       </div>
       <div style="display:flex;gap:10px">${chip("■ Available",C.grn)}${chip("■ Filling 75%+",C.amb)}${chip("■ Full",C.red)}</div>
     </div>
@@ -586,7 +679,7 @@ function buildUI(){
       </div>
       <div class="g4">
         ${CLUBS[sg2].map(cl=>{
-          const n=cc[cl.id]||0, p=Math.round(n/cl.cap*100);
+          const n=cc[cl.id]||0,p=Math.round(n/cl.cap*100);
           const col=p>=100?C.red:p>=75?C.amb:C.grn;
           return `<div class="card" style="margin-bottom:0;padding:14px 16px;border-top:3px solid ${col}">
             <div style="display:flex;justify-content:space-between;margin-bottom:8px">
@@ -604,15 +697,15 @@ function buildUI(){
     </div>
   `).join("")}`;
 
-  // GUIDE TAB
+  // ── GUIDE TAB ────────────────────────────────────────────────────────────────
   const guideTab=`<div class="g3">
     ${[
-      {n:"01",c:C.acc,t:"HOW ALLOCATION WORKS",pts:["Student submitted → club allocated instantly","Tries 1st preference first — if full, tries 2nd, then 3rd","If all 3 full → best available club assigned automatically","Toast notification confirms exact club + which preference used","Capacity warnings shown live on the form before submitting"]},
-      {n:"02",c:C.grn,t:"ENTRY STEPS",pts:["Enter YOUR name first (stays for the session)","Enter student name, grade, section","Pick up to 3 preferences — dropdown shows seats remaining","For clubs with activities, select the specific activity","Press Enter or click '+ Add & Allocate'"]},
-      {n:"03",c:C.amb,t:"STATUS COLOURS",pts:["🟢 GREEN = 1st preference honored","🔵 BLUE = 2nd preference used (1st was full)","🟡 AMBER = 3rd preference used","🟣 PURPLE = administratively allocated (all 3 full)","🔴 RED row = unallocated — needs manual review"]},
-      {n:"04",c:C.pur,t:"EXPORTS (Admin)",pts:["Master List = every student, one row, all details","Club-wise = each club's roster + activity breakdown","Manual Review = only unallocated students","All exports are CSV — open directly in Excel","Export at any time, even mid-session"]},
-      {n:"05",c:C.teal,t:"CAPACITY PANEL",pts:["Shows real-time seats remaining for every club","Green = safe · Amber = filling fast · Red = full","Updates instantly as students are entered","Teachers can check this tab before selecting preferences","Activity-level breakdown shown for multi-activity clubs"]},
-      {n:"06",c:C.red,t:"ADMIN & SECURITY",pts:["Admin URL: add ?admin=true to the site URL","Only admins can delete entries or clear all data","Algorithm is locked in the HTML file — only you can change it","To update: edit HTML → re-upload to GitHub/Netlify","Data stored in Firebase — viewable at console.firebase.google.com"]},
+      {n:"01",c:C.acc,t:"YOUR IDENTITY PANEL",pts:["Enter your name, grade and section ONCE at the top of the Entry tab","These stay locked for your full session — no need to re-enter","Only reset if you manually change them (e.g. switching to a different grade)","Student name and preferences reset after each entry automatically","A green confirmation line shows exactly which grade/section you are entering for"]},
+      {n:"02",c:C.grn,t:"HOW TO ENTER STUDENTS",pts:["1. Complete your identity panel (name, grade, section)","2. Type student name","3. Select up to 3 club preferences — seats remaining shown live","4. For clubs with activities, select the specific activity","5. Press Enter or click '+ Add & Allocate'","6. A toast confirms the club allocated and which preference was used"]},
+      {n:"03",c:C.amb,t:"PREFERENCE & FALLBACK",pts:["Always enter all 3 preferences even if clubs look full — seats can free up","If 1st preference is full → 2nd is tried automatically","If 2nd is also full → 3rd is tried automatically","If all 3 are full → best available club is assigned (administrative)","Capacity warnings appear on the form in real time","Unallocated students are flagged for manual review"]},
+      {n:"04",c:C.pur,t:"DUPLICATE PROTECTION",pts:["If you try to enter a student who is already in the database…","…a red warning toast appears immediately","The entry is blocked — the student is NOT added again","Check the name spelling or contact admin if you believe it's a different student","This prevents accidental duplicate entries during busy sessions"]},
+      {n:"05",c:C.teal,t:"YOUR ENTRIES TABLE",pts:["Below the form you can see ONLY the students YOU have entered","Other teachers' entries are not visible to you here","Capacity counts shown in dropdowns reflect ALL teachers' entries","This keeps your view clean while ensuring accurate seat counts","Admin can see all entries in the Results tab"]},
+      {n:"06",c:C.red,t:"STATUS COLOUR GUIDE",pts:["🟢 GREEN = 1st preference honored","🔵 BLUE = 2nd preference used (1st was full)","🟡 AMBER = 3rd preference used","🟣 PURPLE = administratively allocated (all 3 were full)","🔴 RED row = unallocated — needs admin manual review","Admin exports: Master · Club-wise · Grade-wise · Club+Grade-wise · Unallocated"]},
     ].map(card=>`<div class="card" style="border-left:3px solid ${card.c};padding:16px 18px">
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
         <span style="font-size:20px;font-weight:900;color:${card.c}">${card.n}</span>
@@ -622,23 +715,45 @@ function buildUI(){
     </div>`).join("")}
   </div>`;
 
-  const tabs={entry:entryTab,bulk:bulkTab,results:isAdmin?resultsTab:`<div class="card" style="text-align:center;padding:40px;color:${C.mut}">Admin access required</div>`,exports:isAdmin?exportsTab:`<div class="card" style="text-align:center;padding:40px;color:${C.mut}">Admin access required</div>`,capacity:capacityTab,guide:guideTab};
+  const tabs={
+    entry:entryTab,
+    bulk:isAdmin?bulkTab:`<div class="card" style="text-align:center;padding:40px;color:${C.mut}">Admin access required</div>`,
+    results:isAdmin?resultsTab:`<div class="card" style="text-align:center;padding:40px;color:${C.mut}">Admin access required</div>`,
+    exports:isAdmin?exportsTab:`<div class="card" style="text-align:center;padding:40px;color:${C.mut}">Admin access required</div>`,
+    capacity:capacityTab,
+    guide:guideTab
+  };
 
   return `${toastHTML}${hdr}<div style="max-width:1320px;margin:0 auto;padding:22px 18px">${tabs[tab]||""}</div>`;
 }
 
-// ── GLOBALS (called from inline onclick) ─────────────────────────────────────
-window.ST  = v => { tab=v; render(); };
+// ── GLOBAL FUNCTIONS ──────────────────────────────────────────────────────────
+// Teacher identity — update silently while typing, re-render on blur
+window.ST_by  = v => { teacher.by=v; };
+window.ST_byR = v => { teacher.by=v; render(); };
+window.ST_sec  = v => { teacher.sec=v; };
+window.ST_secR = v => { teacher.sec=v; render(); };
+window.ST_grade = v => {
+  teacher.grade=v;
+  // Reset preferences when grade changes (segment may change)
+  form={name:form.name,p1:"",a1:"",p2:"",a2:"",p3:"",a3:""};
+  render();
+};
+
+// Student form — name updates silently, re-renders on blur
 window.SF  = (k,v) => { form[k]=v; };
 window.SFR = (k,v) => { form[k]=v; render(); };
-window.SG  = v => { form={...form,grade:v,p1:"",a1:"",p2:"",a2:"",p3:"",a3:""}; render(); };
 window.SP  = (pk,ak,v) => { form={...form,[pk]:v,[ak]:""}; render(); };
+
+window.ST  = v => { tab=v; render(); };
 window.AS  = addStudent;
 window.DS  = delStudent;
 window.CA  = clearAll;
 window.IC  = importCSV;
 window.EM  = exportMaster;
 window.EC  = exportClubWise;
+window.EG  = exportGradeWise;
+window.ECG = exportClubGradeWise;
 window.EU  = exportUnalloc;
 window.DLT = ()=>dlCSV("Template_GDGoenka.csv",[
   `"Student Name","Grade","Section","Pref1","Pref1Activity","Pref2","Pref2Activity","Pref3","Pref3Activity","Teacher Name"`,
