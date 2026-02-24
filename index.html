@@ -364,6 +364,49 @@ function exportClubGradeWise(){
   dlCSV("GDGoenka_ClubGradeWise_2026-27.csv",rows);
   toast("✓ Club + Grade-wise exported");
 }
+
+function exportSectionWise(){
+  const rows=[`"GD GOENKA DAKSHINESWAR — GRADE & SECTION-WISE 2026-27"`,`"${new Date().toLocaleString()}"`,`""`];
+  GRADES.forEach(gr=>{
+    const gradeMem=students.filter(r=>r.grade===gr);
+    if(!gradeMem.length) return;
+    rows.push(`""`,`"GRADE: ${gr} (${gradeMem.length} students)"`);
+    const sections=[...new Set(gradeMem.map(r=>r.section||"—"))].sort();
+    sections.forEach(sec=>{
+      const mem=gradeMem.filter(r=>(r.section||"—")===sec);
+      rows.push(`""`,`"  Section: ${sec} (${mem.length} students)"`);
+      rows.push(`"#","Name","Allocated Club","Activity","Pref Used","Teacher"`);
+      mem.forEach((r,i)=>{ const cl=gClub(r.aC),a=r.aA?gAct(r.aC,r.aA):null; rows.push([i+1,r.name,cl?cl.name:"UNALLOCATED",a?a.name:"",r.pU||"",r.by||""].map(v=>`"${v}"`).join(",")); });
+    });
+  });
+  dlCSV("GDGoenka_SectionWise_2026-27.csv",rows);
+  toast("✓ Grade & Section-wise exported");
+}
+
+function exportClubGradeSectionWise(){
+  const rows=[`"GD GOENKA DAKSHINESWAR — CLUB + GRADE + SECTION WISE 2026-27"`,`"${new Date().toLocaleString()}"`,`""`];
+  ["A","B","C"].forEach(sg=>{
+    CLUBS[sg].forEach(cl=>{
+      const clubMem=students.filter(r=>r.aC===cl.id);
+      if(!clubMem.length) return;
+      rows.push(`""`,`"SEGMENT ${sg} — ${cl.id}: ${cl.name} (${clubMem.length} students)"`);
+      const gradesInClub=[...new Set(clubMem.map(r=>r.grade))].sort((a,b)=>GRADES.indexOf(a)-GRADES.indexOf(b));
+      gradesInClub.forEach(gr=>{
+        const gradeMem=clubMem.filter(r=>r.grade===gr);
+        rows.push(`""`,`"  Grade: ${gr} (${gradeMem.length} students)"`);
+        const sections=[...new Set(gradeMem.map(r=>r.section||"—"))].sort();
+        sections.forEach(sec=>{
+          const mem=gradeMem.filter(r=>(r.section||"—")===sec);
+          rows.push(`""`,`"    Section: ${sec} (${mem.length} students)"`);
+          rows.push(`"#","Name","Activity","Pref Used","Teacher"`);
+          mem.forEach((r,i)=>{ const a=r.aA?gAct(r.aC,r.aA):null; rows.push([i+1,r.name,a?a.name:"",r.pU||"",r.by||""].map(v=>`"${v}"`).join(",")); });
+        });
+      });
+    });
+  });
+  dlCSV("GDGoenka_ClubGradeSectionWise_2026-27.csv",rows);
+  toast("✓ Club + Grade + Section-wise exported");
+}
 function exportUnalloc(){
   const bad=students.filter(r=>!r.aC);
   if(!bad.length){ toast("No unallocated students — great!"); return; }
@@ -664,10 +707,12 @@ function buildUI(){
   const exportsTab=`<div class="g3">
     ${[
       {icon:"📋",title:"Master List",desc:"Every student · one row each · full allocation details",col:C.acc,fn:"EM()"},
-      {icon:"🏫",title:"Club-wise Lists",desc:"Grouped by club → full roster per club",col:C.grn,fn:"EC()"},
-      {icon:"🎓",title:"Grade-wise Lists",desc:"Grouped by grade → which club each student got",col:C.pur,fn:"EG()"},
-      {icon:"🏫🎓",title:"Club + Grade-wise",desc:"Each club broken down further by grade",col:C.teal,fn:"ECG()"},
-      {icon:"⚠️",title:"Manual Review",desc:"Only unallocated students · all 3 preferences were full",col:C.red,fn:"EU()"},
+      {icon:"🏫",title:"Club-wise",desc:"Grouped by club → full roster per club with activities",col:C.grn,fn:"EC()"},
+      {icon:"🎓",title:"Grade-wise",desc:"Grouped by grade → which club each student got",col:C.pur,fn:"EG()"},
+      {icon:"🎓📋",title:"Grade & Section-wise",desc:"Grouped by grade → then by section within each grade",col:C.teal,fn:"ES()"},
+      {icon:"🏫🎓",title:"Club + Grade-wise",desc:"Each club broken down by grade",col:C.amb,fn:"ECG()"},
+      {icon:"🏫🎓📋",title:"Club + Grade + Section-wise",desc:"Most detailed · club → grade → section breakdown",col:C.red,fn:"ECGS()"},
+      {icon:"⚠️",title:"Manual Review",desc:"Only unallocated students · all 3 preferences were full",col:C.mut,fn:"EU()"},
     ].map(e=>`<div class="card" style="margin-bottom:0;border-left:3px solid ${e.col}">
       <div style="font-size:24px;margin-bottom:8px">${e.icon}</div>
       <div style="font-weight:700;font-size:13px;margin-bottom:4px">${e.title}</div>
@@ -765,11 +810,13 @@ window.AS  = addStudent;
 window.DS  = delStudent;
 window.CA  = clearAll;
 window.IC  = importCSV;
-window.EM  = exportMaster;
-window.EC  = exportClubWise;
-window.EG  = exportGradeWise;
-window.ECG = exportClubGradeWise;
-window.EU  = exportUnalloc;
+window.EM   = exportMaster;
+window.EC   = exportClubWise;
+window.EG   = exportGradeWise;
+window.ES   = exportSectionWise;
+window.ECG  = exportClubGradeWise;
+window.ECGS = exportClubGradeSectionWise;
+window.EU   = exportUnalloc;
 window.DLT = ()=>dlCSV("Template_GDGoenka.csv",[
   `"Student Name","Grade","Section","Pref1","Pref1Activity","Pref2","Pref2Activity","Pref3","Pref3Activity","Teacher Name"`,
   `"Aarav Sharma","VI","A","B1","","B3","","B5","B5-Eco","Ms. Das"`,
