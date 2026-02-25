@@ -341,7 +341,7 @@ function buildUI(){
     <div class="g2">
       <div>
         <label class="lbl">YOUR NAME *</label>
-        <input value="${teacher.by}" oninput="Tby(this.value)" onblur="TbyR(this.value)" placeholder="Ms. Banerjee" style="border-color:${!teacher.by?C.amb:C.bdr}"/>
+        <input value="${teacher.by}" oninput="Tby(this.value.toUpperCase())" onblur="TbyR(this.value.toUpperCase())" placeholder="MS. BANERJEE" style="text-transform:uppercase;letter-spacing:.5px" style="border-color:${!teacher.by?C.amb:C.bdr}"/>
         ${!teacher.by?`<div style="font-size:10px;color:${C.amb};margin-top:3px">Required before adding students</div>`:""}
       </div>
       <div>
@@ -413,7 +413,7 @@ function buildUI(){
     </div>
     <div style="margin-bottom:14px">
       <label class="lbl">STUDENT NAME *</label>
-      <input value="${form.name}" oninput="SF('name',this.value)" onblur="SFR('name',this.value)" placeholder="Full name" onkeydown="if(event.key==='Enter')AS()" ${!teacher.by||!teacher.grade||(!isAdmin&&sg&&!segAccess[sg])?"disabled":""}/>
+      <input value="${form.name}" oninput="SF('name',this.value.toUpperCase())" onblur="SFR('name',this.value.toUpperCase())" placeholder="FULL NAME IN CAPITALS" style="text-transform:uppercase;letter-spacing:.5px" onkeydown="if(event.key==='Enter')AS()" ${!teacher.by||!teacher.grade||(!isAdmin&&sg&&!segAccess[sg])?"disabled":""}/>
     </div>
     ${warns.length?`<div style="background:${C.amb}15;border:1px solid ${C.amb}44;border-radius:6px;padding:10px 14px;margin-bottom:14px">
       <div style="font-size:11px;font-weight:700;color:${C.amb};margin-bottom:5px">⚠ CAPACITY WARNINGS — full options skipped automatically</div>
