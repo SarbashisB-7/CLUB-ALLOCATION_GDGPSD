@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>GD Goenka — Club Allocation 2026-27</title>
+<title>GD Goenka Dakshineswar — Club Allocation 2026-27</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#0D1117;color:#E6EDF3;font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;min-height:100vh}
@@ -323,7 +323,7 @@ function buildUI(){
     <div style="display:flex;align-items:center;gap:10px">
       <div style="width:34px;height:34px;background:linear-gradient(135deg,${C.acc},${C.pur});border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#fff">GD</div>
       <div>
-        <div style="font-weight:700;font-size:15px">GD Goenka · Club Allocation 2026-27${isAdmin?` <span style="font-size:11px;color:${C.amb}">[ADMIN]</span>`:""}</div>
+        <div style="font-weight:700;font-size:15px">GD Goenka Dakshineswar · Club Allocation 2026-27${isAdmin?` <span style="font-size:11px;color:${C.amb}">[ADMIN]</span>`:""}</div>
         <div style="font-size:11px;color:${C.mut};display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:3px">
           <span>${total} enrolled</span>
           ${["A","B","C"].map(s=>`<span>${chip("Seg "+s+": "+(segAccess[s]?"OPEN":"LOCKED"),segAccess[s]?C.grn:C.red)}</span>`).join("")}
