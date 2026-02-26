@@ -242,42 +242,53 @@ async function importCSV(){
   render();
 }
 
+// ── SORT HELPER ───────────────────────────────────────────────────────────────
+function sortStudents(arr){
+  return [...arr].sort((a,b)=>{
+    const gi=GRADES.indexOf(a.grade)-GRADES.indexOf(b.grade);
+    if(gi!==0) return gi;
+    const sa=(a.section||"").toLowerCase(), sb=(b.section||"").toLowerCase();
+    if(sa<sb) return -1; if(sa>sb) return 1;
+    return (a.name||"").localeCompare(b.name||"");
+  });
+}
+
 // ── EXPORTS ───────────────────────────────────────────────────────────────────
 function exportMaster(){
   const hdr=`"#","Name","Grade","Section","Pref1","Act1","Pref2","Act2","Pref3","Act3","Allocated Club","Activity","Pref Used","Status","Teacher","Time"`;
-  const rows=students.map((r,i)=>{ const cl=gClub(r.aC),ac=r.aA?gAct(r.aC,r.aA):null; return [i+1,r.name,r.grade,r.section||"",r.p1||"",r.a1||"",r.p2||"",r.a2||"",r.p3||"",r.a3||"",cl?cl.name:"UNALLOCATED",ac?ac.name:"",r.pU||"",r.rsn||"",r.by||"",r.at?new Date(r.at).toLocaleString():""].map(v=>`"${v}"`).join(","); });
+  const rows=sortStudents(students).map((r,i)=>{ const cl=gClub(r.aC),ac=r.aA?gAct(r.aC,r.aA):null; return [i+1,r.name,r.grade,r.section||"",r.p1||"",r.a1||"",r.p2||"",r.a2||"",r.p3||"",r.a3||"",cl?cl.name:"UNALLOCATED",ac?ac.name:"",r.pU||"",r.rsn||"",r.by||"",r.at?new Date(r.at).toLocaleString():""].map(v=>`"${v}"`).join(","); });
   dlCSV("GDGoenka_Master_2026-27.csv",[hdr,...rows]); toast("✓ Master list exported");
 }
 function exportClubWise(){
   const {cc,ac}=counts(students);
   const rows=[`"GD GOENKA DAKSHINESWAR — CLUB-WISE 2026-27"`,`"${new Date().toLocaleString()}"`,`""`];
-  ["A","B","C"].forEach(sg=>{ CLUBS[sg].forEach(cl=>{ const mem=students.filter(r=>r.aC===cl.id); rows.push(`""`,`"SEGMENT ${sg} — ${cl.id}: ${cl.name} (${mem.length}/${cl.cap})"`); cl.acts?.forEach(a=>rows.push(`"  ${a.name}: ${ac[a.id]||0}/${a.cap}"`)); rows.push(`"#","Name","Grade","Section","Activity","Pref Used","Teacher"`); mem.forEach((r,i)=>{ const a=r.aA?gAct(r.aC,r.aA):null; rows.push([i+1,r.name,r.grade,r.section||"",a?a.name:"",r.pU||"",r.by||""].map(v=>`"${v}"`).join(",")); }); if(!mem.length) rows.push(`"(none)"`); }); });
+  ["A","B","C"].forEach(sg=>{ CLUBS[sg].forEach(cl=>{ const mem=sortStudents(students.filter(r=>r.aC===cl.id)); rows.push(`""`,`"SEGMENT ${sg} — ${cl.id}: ${cl.name} (${mem.length}/${cl.cap})"`); cl.acts?.forEach(a=>rows.push(`"  ${a.name}: ${ac[a.id]||0}/${a.cap}"`)); rows.push(`"#","Name","Grade","Section","Activity","Pref Used","Teacher"`); mem.forEach((r,i)=>{ const a=r.aA?gAct(r.aC,r.aA):null; rows.push([i+1,r.name,r.grade,r.section||"",a?a.name:"",r.pU||"",r.by||""].map(v=>`"${v}"`).join(",")); }); if(!mem.length) rows.push(`"(none)"`); }); });
   dlCSV("GDGoenka_ClubWise_2026-27.csv",rows); toast("✓ Club-wise exported");
 }
 function exportGradeWise(){
   const rows=[`"GD GOENKA DAKSHINESWAR — GRADE-WISE 2026-27"`,`"${new Date().toLocaleString()}"`,`""`];
-  GRADES.forEach(gr=>{ const mem=students.filter(r=>r.grade===gr); if(!mem.length) return; rows.push(`""`,`"GRADE: ${gr} (${mem.length} students)"`); rows.push(`"#","Name","Section","Allocated Club","Activity","Pref Used","Teacher"`); mem.forEach((r,i)=>{ const cl=gClub(r.aC),a=r.aA?gAct(r.aC,r.aA):null; rows.push([i+1,r.name,r.section||"",cl?cl.name:"UNALLOCATED",a?a.name:"",r.pU||"",r.by||""].map(v=>`"${v}"`).join(",")); }); });
+  GRADES.forEach(gr=>{ const mem=sortStudents(students.filter(r=>r.grade===gr)); if(!mem.length) return; rows.push(`""`,`"GRADE: ${gr} (${mem.length} students)"`); rows.push(`"#","Name","Section","Allocated Club","Activity","Pref Used","Teacher"`); mem.forEach((r,i)=>{ const cl=gClub(r.aC),a=r.aA?gAct(r.aC,r.aA):null; rows.push([i+1,r.name,r.section||"",cl?cl.name:"UNALLOCATED",a?a.name:"",r.pU||"",r.by||""].map(v=>`"${v}"`).join(",")); }); });
   dlCSV("GDGoenka_GradeWise_2026-27.csv",rows); toast("✓ Grade-wise exported");
 }
 function exportSectionWise(){
   const rows=[`"GD GOENKA DAKSHINESWAR — GRADE & SECTION-WISE 2026-27"`,`"${new Date().toLocaleString()}"`,`""`];
-  GRADES.forEach(gr=>{ const gm=students.filter(r=>r.grade===gr); if(!gm.length) return; rows.push(`""`,`"GRADE: ${gr} (${gm.length} students)"`); const secs=[...new Set(gm.map(r=>r.section||"—"))].sort(); secs.forEach(sec=>{ const mem=gm.filter(r=>(r.section||"—")===sec); rows.push(`""`,`"  Section: ${sec} (${mem.length} students)"`); rows.push(`"#","Name","Allocated Club","Activity","Pref Used","Teacher"`); mem.forEach((r,i)=>{ const cl=gClub(r.aC),a=r.aA?gAct(r.aC,r.aA):null; rows.push([i+1,r.name,cl?cl.name:"UNALLOCATED",a?a.name:"",r.pU||"",r.by||""].map(v=>`"${v}"`).join(",")); }); }); });
+  GRADES.forEach(gr=>{ const gm=students.filter(r=>r.grade===gr); if(!gm.length) return; rows.push(`""`,`"GRADE: ${gr} (${gm.length} students)"`); const secs=[...new Set(gm.map(r=>r.section||"—"))].sort(); secs.forEach(sec=>{ const mem=sortStudents(gm.filter(r=>(r.section||"—")===sec)); rows.push(`""`,`"  Section: ${sec} (${mem.length} students)"`); rows.push(`"#","Name","Allocated Club","Activity","Pref Used","Teacher"`); mem.forEach((r,i)=>{ const cl=gClub(r.aC),a=r.aA?gAct(r.aC,r.aA):null; rows.push([i+1,r.name,cl?cl.name:"UNALLOCATED",a?a.name:"",r.pU||"",r.by||""].map(v=>`"${v}"`).join(",")); }); }); });
   dlCSV("GDGoenka_SectionWise_2026-27.csv",rows); toast("✓ Grade & Section-wise exported");
 }
 function exportClubGradeWise(){
   const rows=[`"GD GOENKA DAKSHINESWAR — CLUB + GRADE WISE 2026-27"`,`"${new Date().toLocaleString()}"`,`""`];
-  ["A","B","C"].forEach(sg=>{ CLUBS[sg].forEach(cl=>{ const cm=students.filter(r=>r.aC===cl.id); if(!cm.length) return; rows.push(`""`,`"SEGMENT ${sg} — ${cl.id}: ${cl.name} (${cm.length} students)"`); const grs=[...new Set(cm.map(r=>r.grade))].sort((a,b)=>GRADES.indexOf(a)-GRADES.indexOf(b)); grs.forEach(gr=>{ const mem=cm.filter(r=>r.grade===gr); rows.push(`""`,`"  Grade: ${gr} (${mem.length} students)"`); rows.push(`"#","Name","Section","Activity","Pref Used","Teacher"`); mem.forEach((r,i)=>{ const a=r.aA?gAct(r.aC,r.aA):null; rows.push([i+1,r.name,r.section||"",a?a.name:"",r.pU||"",r.by||""].map(v=>`"${v}"`).join(",")); }); }); }); });
+  ["A","B","C"].forEach(sg=>{ CLUBS[sg].forEach(cl=>{ const cm=students.filter(r=>r.aC===cl.id); if(!cm.length) return; rows.push(`""`,`"SEGMENT ${sg} — ${cl.id}: ${cl.name} (${cm.length} students)"`); const grs=[...new Set(cm.map(r=>r.grade))].sort((a,b)=>GRADES.indexOf(a)-GRADES.indexOf(b)); grs.forEach(gr=>{ const mem=sortStudents(cm.filter(r=>r.grade===gr)); rows.push(`""`,`"  Grade: ${gr} (${mem.length} students)"`); rows.push(`"#","Name","Section","Activity","Pref Used","Teacher"`); mem.forEach((r,i)=>{ const a=r.aA?gAct(r.aC,r.aA):null; rows.push([i+1,r.name,r.section||"",a?a.name:"",r.pU||"",r.by||""].map(v=>`"${v}"`).join(",")); }); }); }); });
   dlCSV("GDGoenka_ClubGradeWise_2026-27.csv",rows); toast("✓ Club + Grade-wise exported");
 }
 function exportClubGradeSectionWise(){
   const rows=[`"GD GOENKA DAKSHINESWAR — CLUB + GRADE + SECTION WISE 2026-27"`,`"${new Date().toLocaleString()}"`,`""`];
-  ["A","B","C"].forEach(sg=>{ CLUBS[sg].forEach(cl=>{ const cm=students.filter(r=>r.aC===cl.id); if(!cm.length) return; rows.push(`""`,`"SEGMENT ${sg} — ${cl.id}: ${cl.name} (${cm.length} students)"`); const grs=[...new Set(cm.map(r=>r.grade))].sort((a,b)=>GRADES.indexOf(a)-GRADES.indexOf(b)); grs.forEach(gr=>{ const gm=cm.filter(r=>r.grade===gr); rows.push(`""`,`"  Grade: ${gr} (${gm.length} students)"`); const secs=[...new Set(gm.map(r=>r.section||"—"))].sort(); secs.forEach(sec=>{ const mem=gm.filter(r=>(r.section||"—")===sec); rows.push(`""`,`"    Section: ${sec} (${mem.length} students)"`); rows.push(`"#","Name","Activity","Pref Used","Teacher"`); mem.forEach((r,i)=>{ const a=r.aA?gAct(r.aC,r.aA):null; rows.push([i+1,r.name,a?a.name:"",r.pU||"",r.by||""].map(v=>`"${v}"`).join(",")); }); }); }); }); });
+  ["A","B","C"].forEach(sg=>{ CLUBS[sg].forEach(cl=>{ const cm=students.filter(r=>r.aC===cl.id); if(!cm.length) return; rows.push(`""`,`"SEGMENT ${sg} — ${cl.id}: ${cl.name} (${cm.length} students)"`); const grs=[...new Set(cm.map(r=>r.grade))].sort((a,b)=>GRADES.indexOf(a)-GRADES.indexOf(b)); grs.forEach(gr=>{ const gm=cm.filter(r=>r.grade===gr); rows.push(`""`,`"  Grade: ${gr} (${gm.length} students)"`); const secs=[...new Set(gm.map(r=>r.section||"—"))].sort(); secs.forEach(sec=>{ const mem=sortStudents(gm.filter(r=>(r.section||"—")===sec)); rows.push(`""`,`"    Section: ${sec} (${mem.length} students)"`); rows.push(`"#","Name","Activity","Pref Used","Teacher"`); mem.forEach((r,i)=>{ const a=r.aA?gAct(r.aC,r.aA):null; rows.push([i+1,r.name,a?a.name:"",r.pU||"",r.by||""].map(v=>`"${v}"`).join(",")); }); }); }); }); });
   dlCSV("GDGoenka_ClubGradeSectionWise_2026-27.csv",rows); toast("✓ Club + Grade + Section-wise exported");
 }
 function exportUnalloc(){
   const bad=students.filter(r=>!r.aC); if(!bad.length){ toast("No unallocated students — great!"); return; }
   const hdr=`"Name","Grade","Section","Pref1","Pref2","Pref3","Reason","Teacher"`;
-  dlCSV("GDGoenka_ManualReview.csv",[hdr,...bad.map(r=>[r.name,r.grade,r.section||"",r.p1||"",r.p2||"",r.p3||"",r.rsn||"",r.by||""].map(v=>`"${v}"`).join(","))]); toast("✓ Manual review list exported");
+  dlCSV("GDGoenka_ManualReview.csv",[hdr,...sortStudents(bad).map(r=>[r.name,r.grade,r.section||"",r.p1||"",r.p2||"",r.p3||"",r.rsn||"",r.by||""].map(v=>`"${v}"`).join(","))]); toast("✓ Manual review list exported");
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
