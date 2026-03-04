@@ -343,6 +343,7 @@ function buildUI(){
     </div>
     <div style="display:flex;gap:3px;flex-wrap:wrap">
       ${TABS.map(([t,l])=>`<button class="tab" onclick="ST('${t}')" style="background:${tab===t?C.acc:"transparent"};color:${tab===t?"#fff":C.mut};font-weight:${tab===t?700:400}">${l}</button>`).join("")}
+      ${isAdmin?`<a href="staff_allocation_v2.html" style="display:inline-flex;align-items:center;gap:5px;padding:6px 13px;background:#BC8CFF18;border:1px solid #BC8CFF44;border-radius:6px;font-size:12px;font-weight:700;color:#BC8CFF;text-decoration:none;white-space:nowrap;transition:background .15s" onmouseover="this.style.background='#BC8CFF28'" onmouseout="this.style.background='#BC8CFF18'">👥 Staff Allocation</a>`:""}
     </div>
   </div>`;
 
