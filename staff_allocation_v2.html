@@ -1,0 +1,1524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Staff Club Allocation 2026-27 · G.D. Goenka Dakshineswar</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=JetBrains+Mono:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#08090E;
+  --s1:#0E1018;
+  --s2:#14161F;
+  --s3:#1A1D2A;
+  --bdr:#252836;
+  --bdr2:#2E3245;
+  --txt:#E8ECF4;
+  --mut:#6B7194;
+  --mut2:#9196B5;
+  --acc:#4F7FFF;
+  --grn:#2ECC71;
+  --amb:#F0A500;
+  --red:#E8445A;
+  --teal:#00C9B1;
+  --pink:#E84F8C;
+  --G1:#E8823A; --G2:#2ECC71; --G3:#4F7FFF;
+  --G4:#00C9B1; --G5:#BC8CFF; --G6:#E84F8C;
+  --G7:#F0A500; --G8:#58A6FF; --G9:#FFA657;
+}
+body{background:var(--bg);color:var(--txt);font-family:'Outfit',sans-serif;font-size:14px;min-height:100vh;overflow-x:hidden}
+
+/* ── PASSWORD GATE ── */
+#gate{
+  position:fixed;inset:0;z-index:9999;
+  background:var(--bg);
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;
+}
+#gate-box{
+  background:var(--s2);
+  border:1px solid var(--bdr2);
+  border-radius:14px;
+  padding:40px 44px;
+  width:min(420px,92vw);
+  text-align:center;
+  animation:fadeUp .4s ease;
+  box-shadow:0 24px 80px #00000060;
+}
+#gate-logo{
+  font-size:36px;margin-bottom:18px;
+  filter:drop-shadow(0 0 20px #4F7FFF44);
+}
+#gate-title{
+  font-family:'Playfair Display',serif;
+  font-size:22px;margin-bottom:6px;
+  background:linear-gradient(135deg,#E8ECF4,#9196B5);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+#gate-sub{
+  font-size:11px;color:var(--mut);
+  font-family:'JetBrains Mono',monospace;
+  letter-spacing:.8px;margin-bottom:28px;
+  text-transform:uppercase;
+}
+#gate-input-wrap{position:relative;margin-bottom:14px}
+#gate-pw{
+  width:100%;padding:12px 44px 12px 16px;
+  font-size:14px;font-family:'Outfit',sans-serif;
+  background:var(--s1);color:var(--txt);
+  border:1px solid var(--bdr2);border-radius:8px;
+  outline:none;letter-spacing:.1em;
+  transition:border .2s, box-shadow .2s;
+  text-align:center;
+}
+#gate-pw:focus{border-color:var(--acc);box-shadow:0 0 0 3px #4F7FFF22}
+#gate-pw.error{border-color:var(--red);animation:shake .3s ease;box-shadow:0 0 0 3px #E8445A22}
+#gate-eye{
+  position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:var(--mut);cursor:pointer;
+  font-size:16px;padding:4px;transition:color .15s;
+}
+#gate-eye:hover{color:var(--txt)}
+#gate-btn{
+  width:100%;padding:12px;
+  background:var(--acc);color:#fff;
+  border:none;border-radius:8px;
+  font-family:'Outfit',sans-serif;font-weight:700;font-size:14px;
+  cursor:pointer;transition:all .18s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+#gate-btn:hover{background:#3d6ee0;transform:translateY(-1px);box-shadow:0 6px 20px #4F7FFF44}
+#gate-btn:active{transform:translateY(0)}
+#gate-err{
+  font-size:12px;color:var(--red);
+  font-family:'JetBrains Mono',monospace;
+  margin-top:12px;min-height:18px;
+  transition:opacity .2s;
+}
+#gate-attempts{
+  font-size:10px;color:var(--mut);
+  font-family:'JetBrains Mono',monospace;
+  margin-top:16px;letter-spacing:.5px;
+}
+#gate-locked{display:none}
+@keyframes shake{
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-8px)}
+  40%{transform:translateX(8px)}
+  60%{transform:translateX(-5px)}
+  80%{transform:translateX(5px)}
+}
+button{cursor:pointer;font-family:inherit;transition:all .18s}
+button:disabled{opacity:.35;cursor:not-allowed}
+input,select{background:var(--s1);color:var(--txt);border:1px solid var(--bdr);border-radius:6px;padding:7px 11px;font-family:inherit;font-size:13px;outline:none;transition:border .15s}
+input:focus,select:focus{border-color:var(--acc)}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideIn{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+
+/* ── HEADER ── */
+.hdr{
+  background:linear-gradient(135deg,var(--s2) 0%,var(--bg) 100%);
+  border-bottom:1px solid var(--bdr);
+  padding:18px 32px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:200;
+  backdrop-filter:blur(12px);
+}
+.hdr-logo h1{
+  font-family:'Playfair Display',serif;
+  font-size:21px;letter-spacing:-.3px;
+  background:linear-gradient(135deg,#E8ECF4,#9196B5);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.hdr-logo p{font-size:10px;color:var(--mut);font-family:'JetBrains Mono',monospace;letter-spacing:1.2px;margin-top:3px;text-transform:uppercase}
+.live-badge{display:inline-flex;align-items:center;gap:6px;background:var(--s3);border:1px solid var(--bdr2);border-radius:20px;padding:5px 13px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--mut2)}
+.live-badge i{width:7px;height:7px;border-radius:50%;background:var(--grn);animation:pulse 2s infinite}
+
+/* ── MAIN ── */
+.main{max-width:1500px;margin:0 auto;padding:28px 32px}
+
+/* ── STEP BAR ── */
+.stepbar{display:flex;gap:0;margin-bottom:28px;border:1px solid var(--bdr);border-radius:10px;overflow:hidden}
+.step{flex:1;padding:12px 16px;background:var(--s1);position:relative;display:flex;align-items:center;gap:10px;border-right:1px solid var(--bdr);cursor:default;transition:background .2s}
+.step:last-child{border-right:none}
+.step.active{background:var(--s2)}
+.step.done{background:var(--s2)}
+.step.clickable{cursor:pointer}
+.step.clickable:hover{background:var(--s3)}
+.step .sn{width:24px;height:24px;border-radius:50%;background:var(--s3);font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--mut)}
+.step.active .sn{background:var(--acc);color:#fff}
+.step.done .sn{background:var(--grn);color:#0a0e1a}
+.step .sl{font-size:11px;font-weight:600;color:var(--txt)}
+.step .ss{font-size:10px;color:var(--mut);font-family:'JetBrains Mono',monospace}
+.step-bar-accent{position:absolute;bottom:0;left:0;height:2px;width:0;background:var(--acc);transition:width .4s}
+.step.active .step-bar-accent{width:100%}
+.step.done .step-bar-accent{width:100%;background:var(--grn)}
+
+/* ── CARDS ── */
+.card{background:var(--s2);border:1px solid var(--bdr);border-radius:10px;padding:20px 22px;margin-bottom:16px}
+.card-hd{font-size:10px;color:var(--mut);font-family:'JetBrains Mono',monospace;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card-hd::before{content:'';display:inline-block;width:3px;height:3px;border-radius:50%;background:currentColor}
+
+/* ── BUTTONS ── */
+.btn{border:none;border-radius:7px;padding:9px 18px;font-weight:600;font-size:12px;font-family:inherit;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;transition:all .18s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 16px #0004}
+.btn:active{transform:translateY(0)}
+.btn-acc{background:var(--acc);color:#fff}
+.btn-grn{background:var(--grn);color:#071a10}
+.btn-out{background:transparent;border:1px solid var(--bdr2);color:var(--mut2)}
+.btn-out:hover{border-color:var(--txt);color:var(--txt)}
+.btn-red{background:var(--red);color:#fff}
+.btn-sm{padding:6px 12px;font-size:11px}
+.btn-teal{background:var(--teal);color:#071a10}
+
+/* ── CHIPS ── */
+.chip{display:inline-flex;align-items:center;gap:4px;border-radius:4px;padding:2px 8px;font-size:10px;font-family:'JetBrains Mono',monospace;white-space:nowrap;font-weight:500}
+
+/* ── STAT ── */
+.stat{background:var(--s1);border:1px solid var(--bdr);border-radius:9px;padding:15px 18px}
+.stat .val{font-family:'Playfair Display',serif;font-size:30px;line-height:1.1;margin-bottom:3px}
+.stat .lbl{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--mut);letter-spacing:.8px;text-transform:uppercase}
+.stat .bar{height:3px;background:var(--s3);border-radius:2px;margin-top:8px;overflow:hidden}
+.stat .bar-fill{height:100%;border-radius:2px;transition:width .6s .1s}
+
+/* ── GRIDS ── */
+.g2{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.g3{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.g2f{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3f{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:900px){.g2f,.g3f{grid-template-columns:1fr}}
+
+/* ── TABLE ── */
+.tbl-wrap{overflow-x:auto;border-radius:8px;border:1px solid var(--bdr)}
+table{width:100%;border-collapse:collapse}
+th{background:var(--s3);color:var(--mut);padding:9px 13px;text-align:left;font-size:10px;letter-spacing:1px;font-family:'JetBrains Mono',monospace;border-bottom:1px solid var(--bdr);white-space:nowrap;text-transform:uppercase}
+td{padding:9px 13px;border-bottom:1px solid #25283618;font-size:12px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#1A1D2A50}
+
+/* ── PROGRESS ── */
+.prog{height:5px;background:var(--s3);border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;border-radius:3px;transition:width .6s}
+
+/* ── SECTION TITLE ── */
+.sec-title{font-family:'Playfair Display',serif;font-size:22px;margin-bottom:4px}
+.sec-sub{font-size:12px;color:var(--mut);margin-bottom:22px;font-family:'JetBrains Mono',monospace;letter-spacing:.5px}
+
+/* ── GROUP CARD (Results) ── */
+.group-card{background:var(--s2);border:1px solid var(--bdr);border-radius:10px;overflow:hidden;margin-bottom:16px;animation:fadeUp .3s ease both}
+.group-card-hd{padding:16px 20px;display:flex;align-items:center;gap:12px;justify-content:space-between;cursor:pointer;user-select:none;transition:background .15s}
+.group-card-hd:hover{background:var(--s3)}
+.group-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.group-name{font-family:'Playfair Display',serif;font-size:16px}
+.group-body{border-top:1px solid var(--bdr);padding:0}
+.group-body.collapsed{display:none}
+
+/* ── CLUB ROW ── */
+.club-row{padding:14px 20px;border-bottom:1px solid var(--bdr)18;background:var(--s1)}
+.club-row:last-child{border-bottom:none}
+.club-row-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.club-label{font-weight:600;font-size:13px}
+.seg-chip{font-size:9px;font-family:'JetBrains Mono',monospace;padding:2px 7px;border-radius:3px;letter-spacing:.8px}
+
+/* ── ROLE TIERS ── */
+.tier{display:flex;flex-direction:column;gap:6px;padding:10px 0}
+.tier-row{display:flex;align-items:center;gap:10px}
+.tier-label{font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--mut);letter-spacing:1px;text-transform:uppercase;width:85px;flex-shrink:0}
+.tier-slots{display:flex;flex-wrap:wrap;gap:6px;flex:1}
+.staff-pill{display:inline-flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--bdr2);border-radius:20px;padding:4px 10px;font-size:11px;font-family:'JetBrains Mono',monospace;transition:all .15s}
+.staff-pill:hover{border-color:var(--mut2)}
+.staff-pill .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.staff-pill.matched .dot{background:var(--grn)}
+.staff-pill.continuity .dot{background:var(--teal)}
+.staff-pill.admin .dot{background:var(--amb)}
+.staff-pill.forced .dot{background:var(--pink)}
+.staff-pill.vacant{border-style:dashed;color:var(--mut);background:transparent}
+.staff-pill.vacant .dot{background:var(--red)}
+
+/* ── CONFLICT BANNER ── */
+.conflict-banner{background:#E8445A10;border:1px solid var(--red)66;border-radius:8px;padding:11px 16px;display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:12px}
+.info-banner{background:#4F7FFF10;border:1px solid var(--acc)44;border-radius:8px;padding:11px 16px;display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:12px}
+.warn-banner{background:#F0A50010;border:1px solid var(--amb)44;border-radius:8px;padding:11px 16px;display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:12px}
+
+/* ── FILTER BAR ── */
+.filterbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.filterbar input{max-width:240px}
+.filter-chip{padding:5px 12px;border:1px solid var(--bdr2);border-radius:20px;font-size:11px;font-family:'JetBrains Mono',monospace;background:transparent;color:var(--mut2);cursor:pointer;transition:all .15s}
+.filter-chip.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.filter-chip:hover:not(.on){border-color:var(--mut2);color:var(--txt)}
+
+/* ── TOAST ── */
+#toasts{position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--s3);border:1px solid var(--bdr2);border-radius:9px;padding:12px 16px;font-size:12px;min-width:260px;max-width:380px;animation:slideIn .3s ease;display:flex;align-items:center;gap:10px}
+.toast.s{border-color:var(--grn)66}
+.toast.e{border-color:var(--red)66}
+.toast.i{border-color:var(--acc)66}
+
+/* ── MODAL ── */
+.modal-bg{position:fixed;inset:0;background:#00000088;z-index:300;display:flex;align-items:center;justify-content:center;animation:fadeUp .2s}
+.modal{background:var(--s2);border:1px solid var(--bdr2);border-radius:12px;padding:26px;width:min(640px,95vw);max-height:85vh;overflow-y:auto}
+.modal-title{font-family:'Playfair Display',serif;font-size:20px;margin-bottom:4px}
+.modal-sub{font-size:12px;color:var(--mut);margin-bottom:20px;font-family:'JetBrains Mono',monospace}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:3px;background:var(--s1);border:1px solid var(--bdr);border-radius:8px;padding:4px}
+.tab{padding:7px 16px;border:none;border-radius:5px;font-size:12px;font-weight:600;font-family:inherit;background:transparent;color:var(--mut);transition:all .18s;cursor:pointer}
+.tab.on{background:var(--s2);color:var(--txt);box-shadow:0 1px 6px #00000040}
+
+/* ── SPECIAL FLAGS ── */
+.flag-leaving{color:var(--amb)}
+.flag-vacant{color:var(--red)}
+
+.lbl{font-size:11px;color:var(--mut);font-family:'JetBrains Mono',monospace;letter-spacing:.8px;margin-bottom:5px;display:block;font-weight:500;text-transform:uppercase}
+.ov{overflow-x:auto}
+.mono{font-family:'JetBrains Mono',monospace}
+</style>
+</head>
+<body>
+
+<!-- PASSWORD GATE -->
+<div id="gate">
+  <div id="gate-box">
+    <div id="gate-logo">🏫</div>
+    <div id="gate-title">Staff Allocation Engine</div>
+    <div id="gate-sub">G.D. Goenka Dakshineswar · 2026–27</div>
+
+    <div id="gate-input-wrap">
+      <input id="gate-pw" type="password" placeholder="Enter access password"
+        onkeydown="if(event.key==='Enter')gateSubmit()" autocomplete="off" spellcheck="false"/>
+      <button id="gate-eye" onclick="gateToggleEye()" title="Show/hide">👁</button>
+    </div>
+
+    <button id="gate-btn" onclick="gateSubmit()">
+      <span id="gate-btn-text">Unlock System</span>
+    </button>
+    <div id="gate-err"></div>
+    <div id="gate-attempts"></div>
+
+    <!-- Lockout screen (shown after too many attempts) -->
+    <div id="gate-locked" style="margin-top:16px;padding:14px;background:var(--red)10;border:1px solid var(--red)44;border-radius:8px">
+      <div style="font-size:22px;margin-bottom:8px">🔒</div>
+      <div style="font-weight:700;color:var(--red);margin-bottom:4px">Access Locked</div>
+      <div id="gate-lockout-timer" style="font-size:12px;color:var(--mut);font-family:'JetBrains Mono',monospace"></div>
+    </div>
+  </div>
+
+  <div style="position:absolute;bottom:24px;font-size:10px;color:var(--mut);font-family:'JetBrains Mono',monospace;letter-spacing:.8px">
+    AUTHORISED PERSONNEL ONLY · G.D. GOENKA SCHOOL DAKSHINESWAR
+  </div>
+</div>
+
+<!-- APP (hidden until unlocked) -->
+<div id="app" style="display:none">
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-logo">
+    <h1>Staff Allocation Engine <span style="font-style:italic;opacity:.6">2026–27</span></h1>
+    <p>G.D. Goenka School Dakshineswar · Club-Group Assignment System</p>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <div class="live-badge"><i></i> Firebase Live</div>
+    <button class="btn btn-out btn-sm" onclick="showLegend()">⚑ Legend</button>
+    <button class="btn btn-out btn-sm" id="exportBtn" disabled onclick="exportResults()">⬇ Export CSV</button>
+    <a href="index.html" style="font-size:11px;color:var(--mut);text-decoration:none;font-family:'JetBrains Mono',monospace;white-space:nowrap">← Students</a>
+  </div>
+</div>
+
+<div id="root"></div>
+<div id="toasts"></div>
+
+</div><!-- end #app -->
+
+<!-- GATE LOGIC (non-module, runs immediately) -->
+<script>
+(function(){
+  // ── PASSWORD CONFIGURATION ────────────────────────────────────────
+  // SHA-256 hash of the password. To change the password:
+  //   1. Go to: https://emn178.github.io/online-tools/sha256.html
+  //   2. Type your new password, copy the hash
+  //   3. Replace the string below
+  // Current password: GDGoenka@Staff2026
+  const PASSWORD_HASH = 'd4e4b618150c5398d158a161f9bc024a5ab4549a995ee8b9e94607f29e233b14';
+
+  const MAX_ATTEMPTS = 5;
+  const LOCKOUT_MS   = 5 * 60 * 1000; // 5 minutes
+
+  let attempts = parseInt(sessionStorage.getItem('gate_attempts')||'0');
+  let lockedUntil = parseInt(sessionStorage.getItem('gate_locked_until')||'0');
+  let eyeVisible = false;
+
+  async function sha256(str) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+
+  function isUnlocked() {
+    return sessionStorage.getItem('gate_unlocked') === '1';
+  }
+
+  function unlock() {
+    sessionStorage.setItem('gate_unlocked','1');
+    sessionStorage.setItem('gate_attempts','0');
+    const gate = document.getElementById('gate');
+    const app  = document.getElementById('app');
+    gate.style.transition = 'opacity .4s';
+    gate.style.opacity = '0';
+    setTimeout(()=>{ gate.style.display='none'; app.style.display='block'; }, 400);
+  }
+
+  function setError(msg) {
+    const el = document.getElementById('gate-err');
+    el.textContent = msg;
+    const pw = document.getElementById('gate-pw');
+    pw.classList.add('error');
+    setTimeout(()=>pw.classList.remove('error'), 600);
+  }
+
+  function updateAttemptDisplay() {
+    const el = document.getElementById('gate-attempts');
+    if(attempts > 0) {
+      const left = MAX_ATTEMPTS - attempts;
+      el.textContent = left > 0 ? `${left} attempt${left===1?'':'s'} remaining` : '';
+    } else {
+      el.textContent = '';
+    }
+  }
+
+  function showLockout() {
+    document.getElementById('gate-input-wrap').style.display = 'none';
+    document.getElementById('gate-btn').style.display = 'none';
+    document.getElementById('gate-err').textContent = '';
+    document.getElementById('gate-attempts').textContent = '';
+    document.getElementById('gate-locked').style.display = 'block';
+    tickLockout();
+  }
+
+  function tickLockout() {
+    const el = document.getElementById('gate-lockout-timer');
+    const remaining = Math.max(0, lockedUntil - Date.now());
+    if(remaining <= 0) {
+      // Reset
+      attempts = 0;
+      sessionStorage.setItem('gate_attempts','0');
+      sessionStorage.removeItem('gate_locked_until');
+      document.getElementById('gate-input-wrap').style.display = 'block';
+      document.getElementById('gate-btn').style.display = 'flex';
+      document.getElementById('gate-locked').style.display = 'none';
+      el.textContent = '';
+      document.getElementById('gate-pw').value = '';
+      return;
+    }
+    const mins = Math.floor(remaining/60000);
+    const secs = Math.floor((remaining%60000)/1000);
+    el.textContent = `Try again in ${mins}:${secs.toString().padStart(2,'0')}`;
+    setTimeout(tickLockout, 1000);
+  }
+
+  window.gateToggleEye = function() {
+    eyeVisible = !eyeVisible;
+    const pw = document.getElementById('gate-pw');
+    pw.type = eyeVisible ? 'text' : 'password';
+    document.getElementById('gate-eye').textContent = eyeVisible ? '🙈' : '👁';
+  };
+
+  window.gateSubmit = async function() {
+    // Check lockout
+    if(Date.now() < lockedUntil) { showLockout(); return; }
+
+    const pw = document.getElementById('gate-pw').value;
+    if(!pw) { setError('Please enter the password.'); return; }
+
+    const btn = document.getElementById('gate-btn');
+    const btnText = document.getElementById('gate-btn-text');
+    btn.disabled = true;
+    btnText.textContent = 'Verifying…';
+
+    const hash = await sha256(pw);
+
+    // Compare against stored hash
+    // NOTE: The default password is GDGoenka@Staff2026
+    // Change PASSWORD_HASH at top of this block to update it
+    const stored = sessionStorage.getItem('gate_pw_hash') || PASSWORD_HASH;
+
+    if(hash === stored) {
+      btnText.textContent = '✓ Access Granted';
+      btn.style.background = 'var(--grn)';
+      setTimeout(unlock, 400);
+    } else {
+      attempts++;
+      sessionStorage.setItem('gate_attempts', attempts);
+      btn.disabled = false;
+      btnText.textContent = 'Unlock System';
+
+      if(attempts >= MAX_ATTEMPTS) {
+        lockedUntil = Date.now() + LOCKOUT_MS;
+        sessionStorage.setItem('gate_locked_until', lockedUntil);
+        showLockout();
+      } else {
+        setError('Incorrect password. Please try again.');
+        updateAttemptDisplay();
+        document.getElementById('gate-pw').value = '';
+        document.getElementById('gate-pw').focus();
+      }
+    }
+  };
+
+  // Admin can update password from URL: ?setpw=newpassword
+  // This stores the new hash in sessionStorage for the session
+  const urlPw = new URLSearchParams(location.search).get('setpw');
+  if(urlPw) {
+    sha256(urlPw).then(h=>{
+      sessionStorage.setItem('gate_pw_hash', h);
+      history.replaceState(null,'',location.pathname);
+      alert('Password updated for this session. To make it permanent, update PASSWORD_HASH in the HTML.');
+    });
+  }
+
+  // If already unlocked this session, skip gate
+  if(isUnlocked()) {
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+  } else {
+    // Check if currently locked out
+    if(Date.now() < lockedUntil) showLockout();
+    else updateAttemptDisplay();
+    // Focus the input
+    window.addEventListener('load', ()=>document.getElementById('gate-pw')?.focus());
+  }
+})();
+</script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, onSnapshot, query }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey:"AIzaSyAdRgwlrX6mOuUGBmlM00JQC-73HkmVXtM",
+  authDomain:"gd-goenka-clubs-5b00d.firebaseapp.com",
+  projectId:"gd-goenka-clubs-5b00d",
+  storageBucket:"gd-goenka-clubs-5b00d.firebasestorage.app",
+  messagingSenderId:"293847865717",
+  appId:"1:293847865717:web:b5e0a0cdf535adc120db3c"
+});
+const db = getFirestore(app);
+
+// ═══════════════════════════════════════════════════
+// COMPLETE KNOWLEDGE BASE (embedded)
+// ═══════════════════════════════════════════════════
+
+const CLUB_GROUPS = [
+  { id:"G1", name:"Art Clubs", icon:"🎨", color:"#E8823A",
+    clubs:[
+      { id:"G1-A", name:"Art Club", segment:"A" },
+      { id:"G1-B", name:"Artistic Expressions Club", segment:"B" }
+    ]
+  },
+  { id:"G2", name:"Explorers Clubs", icon:"🌿", color:"#2ECC71",
+    clubs:[
+      { id:"G2-A1", name:"Quiz & Heritage Club", segment:"A" },
+      { id:"G2-A2", name:"Eco Club", segment:"A" },
+      { id:"G2-B",  name:"Explorers Club", segment:"B",
+        activities:[{id:"G2-B-Eco",name:"Eco"},{id:"G2-B-Quiz",name:"Quiz"},{id:"G2-B-Heritage",name:"Heritage"}]
+      },
+      { id:"G2-C",  name:"Literary, Quiz & Heritage Club", segment:"C",
+        activities:[{id:"G2-C-Literary",name:"Literary"},{id:"G2-C-Quiz",name:"Quiz"},{id:"G2-C-Heritage",name:"Cultural Heritage"}]
+      }
+    ]
+  },
+  { id:"G3", name:"Sports Clubs", icon:"⚽", color:"#4F7FFF",
+    clubs:[
+      { id:"G3-A", name:"Karate Club", segment:"A" },
+      { id:"G3-B", name:"Health & Fitness Club", segment:"B",
+        activities:[{id:"G3-B-Yoga",name:"Yoga"},{id:"G3-B-TT",name:"Table Tennis"},{id:"G3-B-Squash",name:"Squash"},{id:"G3-B-Cricket",name:"Cricket"}]
+      },
+      { id:"G3-C", name:"Sports & Defence Club", segment:"C",
+        activities:[{id:"G3-C-Chess",name:"Chess"},{id:"G3-C-Football",name:"Football"},{id:"G3-C-Basketball",name:"Basketball"},{id:"G3-C-Taekwondo",name:"Taekwondo"},{id:"G3-C-Yoga",name:"Yoga"}]
+      }
+    ]
+  },
+  { id:"G4", name:"Tech Clubs", icon:"💻", color:"#00C9B1",
+    specialRule:"AI_NEEDS_MATHS",
+    clubs:[
+      { id:"G4-A", name:"Tech Club", segment:"A",
+        activities:[{id:"G4-A-Senior",name:"Senior Classes"},{id:"G4-A-Junior",name:"Junior Classes"}]
+      },
+      { id:"G4-C", name:"AI & Data Science Club", segment:"C", note:"Needs CS + Maths jointly" }
+    ]
+  },
+  { id:"G5", name:"Science Clubs", icon:"🔬", color:"#BC8CFF",
+    clubs:[
+      { id:"G5-B", name:"Science Club", segment:"B" },
+      { id:"G5-C", name:"Science & Technology Club", segment:"C" }
+    ]
+  },
+  { id:"G6", name:"Performing Arts Clubs", icon:"🎭", color:"#E84F8C",
+    clubs:[
+      { id:"G6-A1", name:"Dance Club", segment:"A" },
+      { id:"G6-A2", name:"Music Club", segment:"A" },
+      { id:"G6-B",  name:"Rhythm & Vibration Club", segment:"B",
+        activities:[{id:"G6-B-Western",name:"Western Dance"},{id:"G6-B-Eastern",name:"Eastern Dance"},{id:"G6-B-Instrumental",name:"Instrumental Music"},{id:"G6-B-Vocal",name:"Vocal Music"}]
+      },
+      { id:"G6-C",  name:"Performing Arts Club", segment:"C",
+        activities:[{id:"G6-C-Western",name:"Western Dance"},{id:"G6-C-Eastern",name:"Eastern Dance"},{id:"G6-C-Music",name:"Music"},{id:"G6-C-Drama",name:"Drama"}]
+      }
+    ]
+  },
+  { id:"G7", name:"Culinary Arts Clubs", icon:"🍽️", color:"#D29922",
+    clubs:[
+      { id:"G7-A", name:"Non-Fire Cooking Club", segment:"A" },
+      { id:"G7-C", name:"Non-Fire Cooking Club", segment:"C" }
+    ]
+  },
+  { id:"G8", name:"Commerce & Maths Clubs", icon:"📊", color:"#58A6FF",
+    clubs:[
+      { id:"G8-B", name:"Math Club", segment:"B" },
+      { id:"G8-C", name:"Commerce Club", segment:"C" }
+    ]
+  },
+  { id:"G9", name:"Literary Expressions Clubs", icon:"📚", color:"#FFA657",
+    clubs:[
+      { id:"G9-A", name:"Creative Expressions Club", segment:"A",
+        activities:[{id:"G9-A-French",name:"French"},{id:"G9-A-Drama",name:"Drama"},{id:"G9-A-Writing",name:"Creative Writing"},{id:"G9-A-Reading",name:"Reading"}]
+      },
+      { id:"G9-B", name:"Literary Expressions Club", segment:"B",
+        activities:[{id:"G9-B-Debate",name:"Debate"},{id:"G9-B-Writing",name:"Creative Writing"},{id:"G9-B-Reading",name:"Reading"}]
+      },
+      { id:"G9-C", name:"Foreign Language & Global Skills Club", segment:"C",
+        activities:[{id:"G9-C-Spanish",name:"Spanish"},{id:"G9-C-Reading",name:"Reading"},{id:"G9-C-Writing",name:"Creative Writing"},{id:"G9-C-Debate",name:"Debate"}]
+      }
+    ]
+  }
+];
+
+// Full staff data
+const STAFF = [
+  {id:1,name:"ABHIJIT GUTI",dept:"SPO",role:"Yoga Coach",prevClub:"G3-B-Yoga",status:"active"},
+  {id:2,name:"ABHIRUP SEN",dept:"BEN",role:"TGT Bengali",prevClub:"G6-C-Drama",status:"active"},
+  {id:3,name:"ADITI KUNDU",dept:"MAT",role:"TGT Maths/Economics",prevClub:null,status:"active"},
+  {id:4,name:"AFREEN ALAM",dept:"JR",role:"Class I Teacher",prevClub:"G2-A2",status:"active"},
+  {id:5,name:"AJANTA PRASAD",dept:"SCI",role:"TGT Science/Biology",prevClub:"G5-B",status:"active"},
+  {id:6,name:"ALISHA GUPTA",dept:"NUR",role:"Upper Nursery Teacher",prevClub:"G1-A",status:"active"},
+  {id:7,name:"AMAL DEBNATH",dept:"LAB",role:"Chemistry Lab Asst",prevClub:null,status:"active"},
+  {id:8,name:"AMARNATH PAUL",dept:"ART",role:"TGT Art",prevClub:"G2-B-Heritage",status:"active"},
+  {id:9,name:"AMRITA SARKAR MANDAL",dept:"ENG",role:"TGT English",prevClub:"G9-B-Debate",status:"active"},
+  {id:10,name:"ANAPURBA KANJILAL",dept:"HOM",role:"TGT Home Science",prevClub:"G7-C",status:"active"},
+  {id:11,name:"ANASUYA GOSWAMI",dept:"BEN",role:"TGT Bengali",prevClub:"G6-C-Drama",status:"active",prevRole:"clubHead"},
+  {id:12,name:"ANINDITA CHAKRABORTY",dept:"CHE",role:"TGT Chemistry",prevClub:"G5-B",status:"active"},
+  {id:13,name:"ANINDITA GANGULI",dept:"MAT",role:"TGT Mathematics",prevClub:"G8-B",status:"active"},
+  {id:14,name:"ANIRUDDHA BHATTACHARYA",dept:"ADM",role:"Vice-Principal",prevClub:null,status:"no_allotment"},
+  {id:15,name:"ANKAN AOWN",dept:"SST",role:"TGT Social Sciences",prevClub:null,status:"active"},
+  {id:16,name:"ANKANA GUIN",dept:"ENG",role:"TGT English",prevClub:"G9-B-Debate",status:"active",prevRole:"groupHead",segHead:"A"},
+  {id:17,name:"ANKITA KUMARI SHARMA",dept:"NUR",role:"Upper Nursery Teacher",prevClub:"G1-A",status:"active"},
+  {id:18,name:"ANUJA DATTA MAJUMDAR",dept:"PSY",role:"TGT Psychology",prevClub:null,status:"active"},
+  {id:19,name:"APARNA SEN",dept:"JR",role:"Class II Teacher",prevClub:"G7-A",status:"active"},
+  {id:20,name:"ARATI PAUL",dept:"MED",role:"Infirmary Attendant",prevClub:null,status:"active"},
+  {id:21,name:"ARCHITA SUR",dept:"SST",role:"TGT Social Sciences",prevClub:"G2-A2",status:"active"},
+  {id:22,name:"ARIJIT DAS",dept:"CHE",role:"TGT Chemistry",prevClub:null,status:"active"},
+  {id:23,name:"ARINDAM DAS",dept:"SPO",role:"Chess Coach",prevClub:"G3-C-Chess",status:"active",prevRole:"clubHead"},
+  {id:24,name:"ARYA PRIYA MANNA",dept:"JR",role:"Class I Teacher",prevClub:"G2-A2",status:"active"},
+  {id:25,name:"ASHA SINGH",dept:"HIN",role:"TGT Hindi",prevClub:"G6-C-Drama",status:"active"},
+  {id:26,name:"AVIJIT CHATTERJEE",dept:"MAT",role:"TGT Mathematics",prevClub:"G8-B",status:"active",prevRole:"clubHead"},
+  {id:27,name:"AYAN SARKAR",dept:"SPO",role:"Karate Coach",prevClub:"G3-A",status:"active",prevRole:"clubHead"},
+  {id:28,name:"BANI RANI SAHA",dept:"MAT",role:"TGT Mathematics",prevClub:"G8-B",status:"active"},
+  {id:29,name:"BEAUTY KUMARI",dept:"JR",role:"Class I Teacher",prevClub:null,status:"active"},
+  {id:30,name:"BHASWATI JANA",dept:"BEN",role:"TGT Bengali (Part-time)",prevClub:null,status:"temp"},
+  {id:31,name:"CHANDRA PAUL",dept:"ENG",role:"TGT English/SST",prevClub:"G7-A",status:"active"},
+  {id:32,name:"CHAYANIKA SAHA",dept:"BEN",role:"TGT Bengali",prevClub:"G7-A",status:"active"},
+  {id:33,name:"DEBARATI MUKHERJEE",dept:"ENG",role:"TGT English",prevClub:"G9-B-Debate",status:"active"},
+  {id:34,name:"DEBASIS DAS",dept:"SPO",role:"Sports Teacher",prevClub:"G3-A",status:"active"},
+  {id:35,name:"DEBASMITA SAHA",dept:"SCI",role:"TGT Science III-V",prevClub:"G2-A2",status:"active"},
+  {id:36,name:"DEBOLINA BHATTACHARYA",dept:"BIO",role:"TGT Science/Biology",prevClub:"G2-A2",status:"active"},
+  {id:37,name:"DIPANWITA MUKHERJEE",dept:"NUR",role:"KG Teacher",prevClub:"G1-A",status:"active"},
+  {id:38,name:"DISHA HALDER",dept:"BIO",role:"TGT Science/Biology",prevClub:"G2-B-Quiz",status:"active"},
+  {id:39,name:"INDRANI BHAR",dept:"ENG",role:"TGT English III-V",prevClub:null,status:"active"},
+  {id:40,name:"JOYEETA DAS GHOSH",dept:"LIB",role:"Librarian",prevClub:"G9-B-Reading",status:"active"},
+  {id:41,name:"KAUSANI BHATTACHARYA",dept:"SST",role:"TGT Social Sciences",prevClub:"G6-C-Drama",status:"active"},
+  {id:42,name:"KAUSHIK BHATTACHARJEE",dept:"PHY",role:"HOD Physics",prevClub:"G5-B",status:"active"},
+  {id:43,name:"KIRAN SAU",dept:"ENG",role:"TGT English III-V",prevClub:"G2-B-Quiz",status:"active"},
+  {id:44,name:"KOUSHIK DUTTA",dept:"LAB",role:"Biology Lab Asst",prevClub:null,status:"active"},
+  {id:45,name:"KRISHNA DEY",dept:"BEN",role:"TGT Bengali",prevClub:"G1-A",status:"active"},
+  {id:46,name:"MADHUSREE DAS",dept:"BEN",role:"TGT Bengali",prevClub:"G9-B-Writing",status:"active"},
+  {id:47,name:"MAITRAYEE CHATTERJEE",dept:"ENG",role:"TGT English III-V",prevClub:"G2-B-Quiz",status:"active"},
+  {id:48,name:"MAM CHAKRABORTY",dept:"MUS",role:"Music Teacher Juniors",prevClub:"G6-A2",status:"active",prevRole:"clubHead"},
+  {id:49,name:"MANISH RAJAK",dept:"SPO",role:"Basketball Coach",prevClub:"G3-C-Basketball",status:"resigned"},
+  {id:50,name:"MAYUKH CHATTERJEE",dept:"ART",role:"TGT Art",prevClub:"G2-B-Heritage",status:"active"},
+  {id:51,name:"MEGHNA SEN SAHA",dept:"ECO",role:"HOD Commerce",prevClub:"G2-B-Heritage",status:"active"},
+  {id:52,name:"MEHRIN BABER",dept:"SCI",role:"TGT Science III-V",prevClub:"G2-A2",status:"active",prevRole:"clubHead"},
+  {id:53,name:"MEKHLA BISWAS",dept:"ENG",role:"TGT English",prevClub:"G9-B-Debate",status:"active"},
+  {id:54,name:"MITHU GOSWAMI",dept:"LAB",role:"Physics Lab Asst",prevClub:null,status:"active"},
+  {id:55,name:"MITHU ROY",dept:"MED",role:"Infirmary Attendant",prevClub:null,status:"deceased"},
+  {id:56,name:"MOHAMMED SAEM ALI",dept:"MAT",role:"TGT Maths/Computer",prevClub:null,status:"active",disciplineHead:true},
+  {id:57,name:"MONICA ARORA",dept:"JR",role:"Class II Teacher",prevClub:"G2-B-Quiz",status:"active"},
+  {id:58,name:"MOUMITA DAS PARUI",dept:"COM",role:"HOD Computer",prevClub:"G4-A-Senior",status:"active",prevRole:"clubHead"},
+  {id:59,name:"MOUMITA SAHA",dept:"NUR",role:"KG Teacher",prevClub:"G1-A",status:"active"},
+  {id:60,name:"MUNMUN MUKHERJEE",dept:"JR",role:"Class I Teacher",prevClub:"G1-A",status:"active"},
+  {id:61,name:"NABORUPA RAHA",dept:"ECO",role:"TGT Economics/Maths",prevClub:"G7-C",status:"active"},
+  {id:62,name:"NARAYANI DE",dept:"HIN",role:"TGT Hindi",prevClub:"G6-C-Drama",status:"leaving"},
+  {id:63,name:"NEHA SINGH",dept:"HIN",role:"HOD Hindi",prevClub:"G9-B-Writing",status:"active"},
+  {id:64,name:"NIBEDITA BISWAS",dept:"ART",role:"TGT Art",prevClub:"G1-A",status:"active"},
+  {id:65,name:"NIBEDITA PAL",dept:"SST",role:"TGT Social Sciences",prevClub:"G2-C-Heritage",status:"active"},
+  {id:66,name:"NILANJANA DUTTA",dept:"MAT",role:"TGT Maths III-V",prevClub:null,status:"active",floorDuty:"GF"},
+  {id:67,name:"NILANJANA SHOME",dept:"SCI",role:"TGT Science/Maths",prevClub:"G8-B",status:"active"},
+  {id:68,name:"NILAVA BISWAS",dept:"SPO",role:"Taekwondo Coach",prevClub:"G3-C-Taekwondo",status:"active",prevRole:"clubHead"},
+  {id:69,name:"NITEN KUMAR GHOSH",dept:"SPO",role:"Sports Teacher",prevClub:"G3-B-Squash",status:"active",prevRole:"inCharge"},
+  {id:70,name:"PAMMI JAISWAL",dept:"JR",role:"Class II Teacher",prevClub:"G7-A",status:"active"},
+  {id:71,name:"PAROMITA BAGCHI",dept:"ADM",role:"Headmistress",prevClub:null,status:"no_allotment"},
+  {id:72,name:"PIYALI CHATTERJEE",dept:"COM",role:"TGT Computer",prevClub:"G4-A-Junior",status:"active",prevRole:"inCharge"},
+  {id:73,name:"POMPA CHOWDHURY",dept:"NUR",role:"UN Teacher",prevClub:"G1-A",status:"active"},
+  {id:74,name:"POOJA ROY CHOWDHURY",dept:"ENG",role:"French Teacher",prevClub:"G9-A-French",status:"active",prevRole:"clubHead",forced:true},
+  {id:75,name:"POUSALI BASU",dept:"SST",role:"TGT Social Sciences",prevClub:"G2-A2",status:"active",prevRole:"clubHead"},
+  {id:76,name:"PRASUN BHATTACHARJEE",dept:"MUS",role:"Music Teacher Seniors",prevClub:"G6-A2",status:"active",prevRole:"groupHead",segHead:"C"},
+  {id:77,name:"PRITI PARASHAR",dept:"HIN",role:"TGT Hindi",prevClub:"G9-B-Writing",status:"active"},
+  {id:78,name:"PRIYAM ROY",dept:"SST",role:"TGT Social Sciences",prevClub:"G2-A2",status:"active"},
+  {id:79,name:"PUNAM SINGH",dept:"SST",role:"TGT Social Sciences",prevClub:"G2-B-Quiz",status:"active"},
+  {id:80,name:"PUSHPITA MUKHERJEE",dept:"ENG",role:"TGT English",prevClub:null,status:"active"},
+  {id:81,name:"RAJNI DAS",dept:"HIN",role:"TGT Hindi (replaced)",prevClub:"G9-B-Writing",status:"replaced"},
+  {id:82,name:"RANADHIR CHAKRABORTY",dept:"SST",role:"TGT Social Sciences",prevClub:"G2-B-Quiz",status:"active",prevRole:"groupHead"},
+  {id:83,name:"RASHMI RAI",dept:"HIN",role:"TGT Hindi",prevClub:null,status:"active",floorDuty:"GF"},
+  {id:84,name:"REETOM PAUL",dept:"BIO",role:"TGT Biology",prevClub:"G5-B",status:"active"},
+  {id:85,name:"RITUPARNA CHATTERJEE",dept:"MAT",role:"TGT Mathematics",prevClub:"G7-C",status:"active"},
+  {id:86,name:"RUPSA GHOSAL",dept:"BEN",role:"TGT Bengali",prevClub:"G9-B-Writing",status:"active"},
+  {id:87,name:"SAJJAD HOSSAIN BISWAS",dept:"PHY",role:"TGT Physics",prevClub:null,status:"active",floorDuty:"2F"},
+  {id:88,name:"SANDEEP KAUR",dept:"CHE",role:"HOD Chemistry",prevClub:"G5-B",status:"active"},
+  {id:89,name:"SANDIP KUMAR GHOSH",dept:"MAT",role:"HOD Mathematics",prevClub:"G8-B",status:"active"},
+  {id:90,name:"SANGHAMITRA BASAK",dept:"JR",role:"Class II Teacher",prevClub:"G2-A2",status:"active",floorDuty:"1F"},
+  {id:91,name:"SANGHATI MULLICK SAHA",dept:"NUR",role:"Nursery Teacher",prevClub:"G6-B-Eastern",status:"active",floorDuty:"1F"},
+  {id:92,name:"SANGITA MITRA",dept:"MAT",role:"TGT Mathematics",prevClub:"G8-B",status:"active"},
+  {id:93,name:"SANJANA GHOSH",dept:"SST",role:"TGT Social Sciences",prevClub:"G2-C-Heritage",status:"active"},
+  {id:94,name:"SARBASHIS BHATTACHARJEE",dept:"ADM",role:"Overall Club In-Charge",prevClub:null,status:"no_allotment"},
+  {id:95,name:"SARITA BOSE",dept:"ENG",role:"TGT English",prevClub:"G2-A2",status:"active"},
+  {id:96,name:"SASWATI MAJUMDER",dept:"BEN",role:"HOD Bengali",prevClub:"G9-B-Writing",status:"active"},
+  {id:97,name:"SAYANI CHOWDHURY",dept:"ENG",role:"TGT English",prevClub:"G7-C",status:"active",prevRole:"clubHead"},
+  {id:98,name:"SAYANTAN GHOSH",dept:"COM",role:"TGT Computer",prevClub:"G4-A-Senior",status:"left"},
+  {id:99,name:"SAYANTI ROY",dept:"BEN",role:"TGT Bengali",prevClub:"G6-C-Drama",status:"active"},
+  {id:100,name:"SHAHEEN PARVEEN",dept:"HIN",role:"TGT Hindi",prevClub:null,status:"active",floorDuty:"2F"},
+  {id:101,name:"SHAKRA OMUL KHAIR",dept:"ENG",role:"TGT English III-V",prevClub:"G2-B-Quiz",status:"active"},
+  {id:102,name:"SHEHNAAZ PARVEEN",dept:"NUR",role:"Nursery Teacher",prevClub:"G6-B-Eastern",status:"active"},
+  {id:103,name:"SHILPA PATHAK",dept:"HIN",role:"TGT Hindi",prevClub:null,status:"active"},
+  {id:104,name:"SHIPRA MISHRA",dept:"HIN",role:"TGT Hindi",prevClub:null,status:"active",floorDuty:"3F"},
+  {id:105,name:"SINJINI ROY",dept:"LIB",role:"Librarian",prevClub:"G9-B-Reading",status:"active",prevRole:"clubHead"},
+  {id:106,name:"SONAL PODDAR BHAR",dept:"ART",role:"TGT Art/Maths",prevClub:"G1-A",status:"active",prevRole:"clubHead"},
+  {id:107,name:"SONAM ROY",dept:"ENG",role:"TGT English",prevClub:"G6-C-Drama",status:"left"},
+  {id:108,name:"SOUMITA CHAKRABORTY",dept:"PHY",role:"TGT Physics",prevClub:"G5-B",status:"active"},
+  {id:109,name:"SOUMMYADIPTA GANGULY",dept:"ENG",role:"TGT English/SST III-V",prevClub:"G7-A",status:"active",prevRole:"clubHead"},
+  {id:110,name:"SOURAV BASAK",dept:"CHE",role:"TGT Chemistry",prevClub:null,status:"left",floorDuty:"1F"},
+  {id:111,name:"SRABONA PAUL",dept:"DAN",role:"Western Dance Teacher",prevClub:"G6-B-Western",status:"active",prevRole:"clubHead",forced:true},
+  {id:112,name:"SREETI SETH",dept:"MAT",role:"TGT Mathematics",prevClub:"G8-B",status:"active"},
+  {id:113,name:"SREYASHI UPADHYAY",dept:"COM",role:"TGT Computer",prevClub:"G4-A-Junior",status:"active",floorDuty:"3F",prevRole:"inCharge"},
+  {id:114,name:"SREYASREE DEB",dept:"COM",role:"TGT Computer",prevClub:"G4-A-Senior",status:"active"},
+  {id:115,name:"SRIPARNA MUKHERJEE",dept:"ENG",role:"TGT English",prevClub:null,status:"active"},
+  {id:116,name:"SUBARNA DUTTA",dept:"MAT",role:"TGT Mathematics",prevClub:"G8-B",status:"active"},
+  {id:117,name:"SUBHOJIT MAZUMDER",dept:"SPO",role:"Football Coach",prevClub:"G3-C-Football",status:"leaving"},
+  {id:118,name:"SUCHANA SEN",dept:"ENG",role:"TGT English",prevClub:"G2-B-Quiz",status:"active"},
+  {id:119,name:"SUCHARITA BHATTACHARYA",dept:"BIO",role:"HOD Biology/Psychology",prevClub:"G2-A2",status:"active"},
+  {id:120,name:"SUDIPTA GHOSH",dept:"ENG",role:"TGT English III-V",prevClub:null,status:"active"},
+  {id:121,name:"SUJOY BHAKAT",dept:"COM",role:"TGT Computer",prevClub:"G4-A-Senior",status:"active"},
+  {id:122,name:"SUMEDHA DHAR",dept:"MAT",role:"TGT Mathematics",prevClub:"G8-B",status:"active"},
+  {id:123,name:"SUNIPA BOSE",dept:"ENG",role:"TGT English",prevClub:"G9-B-Writing",status:"active",prevRole:"groupHead",segHead:"B"},
+  {id:124,name:"SUNITA GURUNG DEY",dept:"SST",role:"TGT Social Sciences",prevClub:"G2-C-Heritage",status:"active"},
+  {id:125,name:"SUNTANU DAS",dept:"MUS",role:"Instrumental Music Teacher",prevClub:"G6-B-Instrumental",status:"active",prevRole:"clubHead",forced:true},
+  {id:126,name:"SUPARNA BHATTACHARYA",dept:"SPO",role:"Sports Teacher",prevClub:"G3-B-TT",status:"active",prevRole:"clubHead",forced:true},
+  {id:127,name:"SUSMITA KAR",dept:"SST",role:"TGT Social Sciences",prevClub:null,status:"active"},
+  {id:128,name:"SUSOBHAN BHATTACHARYYA",dept:"ECO",role:"TGT Commerce",prevClub:null,status:"active",floorDuty:"6F"},
+  {id:129,name:"TANMAY SAU",dept:"PHY",role:"TGT Physics",prevClub:"G5-B",status:"active"},
+  {id:130,name:"TINKU CHOWDHURY",dept:"BIO",role:"TGT Biology",prevClub:"G2-A2",status:"active"},
+  {id:131,name:"TISTA GUPTA",dept:"NUR",role:"KG Teacher",prevClub:"G1-A",status:"active"},
+  {id:132,name:"TITHI GHOSH",dept:"COM",role:"TGT Computer",prevClub:"G4-A-Senior",status:"active"},
+  {id:133,name:"TUHINA CHOWDHURY",dept:"CHE",role:"TGT Chemistry",prevClub:"G5-B",status:"active",prevRole:"clubHead"},
+  {id:134,name:"TULI MUKHERJEE",dept:"DAN",role:"Dance Teacher Juniors",prevClub:"G6-A1",status:"leaving"},
+  {id:135,name:"UDITA ROY PAUL CHOWDHURY",dept:"DAN",role:"Eastern Dance Teacher",prevClub:"G6-B-Eastern",status:"active",prevRole:"clubHead",forced:true},
+  {id:136,name:"UJJAL DEBANSHI",dept:"SPO",role:"Sports Teacher",prevClub:"G3-B-Cricket",status:"active",prevRole:"clubHead",forced:true},
+  {id:137,name:"URBASI ROY",dept:"SST",role:"HOD Social Sciences",prevClub:"G2-C-Heritage",status:"active",prevRole:"groupHead"},
+  {id:138,name:"VARUNA KAPOOR",dept:"NUR",role:"KG Teacher",prevClub:"G2-A2",status:"active"},
+];
+
+// Dept affinity per group [G1..G9]
+const DEPT_AFF = {
+  ART:[5,1,0,0,0,3,1,0,2], ENG:[0,2,0,0,0,1,0,0,5], BEN:[0,2,0,0,0,2,0,0,4],
+  HIN:[0,2,0,0,0,2,0,0,3], MAT:[0,1,0,4,2,0,1,5,1], SCI:[0,3,0,2,5,0,2,1,0],
+  BIO:[0,4,1,0,4,0,2,0,0], CHE:[0,2,0,1,5,0,3,0,0], PHY:[0,1,0,3,5,0,0,1,0],
+  SST:[0,5,0,0,1,0,0,1,3], COM:[0,0,0,5,3,0,0,1,1], MUS:[0,0,0,0,0,5,0,0,1],
+  DAN:[0,0,2,0,0,5,0,0,0], SPO:[0,0,5,0,0,1,0,0,0], ECO:[0,1,0,1,0,0,1,5,0],
+  JR: [1,2,1,0,1,1,2,0,2], NUR:[2,1,1,0,0,2,1,0,1], LIB:[0,1,0,1,0,0,0,0,5],
+  LAB:[0,1,0,2,4,0,2,0,0], MED:[0,0,2,0,2,0,2,0,0], PSY:[0,1,1,0,1,2,1,0,2],
+  HOM:[0,0,0,0,1,0,5,1,0], ADM:[0,0,0,0,0,0,0,0,0],
+};
+
+// Activity-level fine dept affinities
+const ACT_AFF = {
+  "G1-A":{ART:5,NUR:3,JR:2},"G1-B":{ART:5,ENG:2},
+  "G2-A1":{SST:5,ENG:3,HIN:3,BEN:3},"G2-A2":{SCI:5,BIO:5,SST:4,JR:3,NUR:2},
+  "G2-B-Eco":{BIO:5,SCI:4,SST:3},"G2-B-Quiz":{SST:5,ENG:4,SCI:3,HIN:3,BEN:3},
+  "G2-B-Heritage":{SST:5,ART:4,ENG:3,BEN:3},"G2-C-Literary":{ENG:5,BEN:4,LIB:4},
+  "G2-C-Quiz":{SST:5,ENG:4,SCI:3,MAT:3},"G2-C-Heritage":{SST:5,ENG:3,ART:3,BEN:3},
+  "G3-A":{SPO:5},"G3-B-Yoga":{SPO:5,MED:3,PSY:2},"G3-B-TT":{SPO:5},"G3-B-Squash":{SPO:5},
+  "G3-B-Cricket":{SPO:5},"G3-C-Chess":{SPO:4,MAT:3,COM:3},"G3-C-Football":{SPO:5},
+  "G3-C-Basketball":{SPO:5},"G3-C-Taekwondo":{SPO:5},"G3-C-Yoga":{SPO:5,MED:3},
+  "G4-A-Senior":{COM:5,MAT:3,PHY:2},"G4-A-Junior":{COM:5,MAT:2},
+  "G4-C":{COM:5,MAT:4,PHY:2},
+  "G5-B":{SCI:5,BIO:4,CHE:4,PHY:4},"G5-C":{PHY:5,CHE:4,SCI:4,BIO:3,COM:2},
+  "G6-A1":{DAN:5,MUS:2},"G6-A2":{MUS:5,BEN:2},"G6-B-Western":{DAN:5},"G6-B-Eastern":{DAN:5},
+  "G6-B-Instrumental":{MUS:5},"G6-B-Vocal":{MUS:5,BEN:2,HIN:2},
+  "G6-C-Western":{DAN:5},"G6-C-Eastern":{DAN:5},"G6-C-Music":{MUS:5,BEN:2},"G6-C-Drama":{BEN:5,ENG:4,HIN:3},
+  "G7-A":{HOM:5,SCI:3,BIO:2,JR:3,NUR:3},"G7-C":{HOM:5,ECO:3,BIO:2,ENG:2},
+  "G8-B":{MAT:5,PHY:3,SCI:3,ECO:3},"G8-C":{ECO:5,MAT:4,SST:3},
+  "G9-A-French":{ENG:3},"G9-A-Drama":{BEN:5,ENG:4,HIN:3},"G9-A-Writing":{ENG:5,BEN:4,LIB:4},
+  "G9-A-Reading":{ENG:5,LIB:5,BEN:3},"G9-B-Debate":{ENG:5,SST:4,HIN:3,BEN:3},
+  "G9-B-Writing":{ENG:5,BEN:5,HIN:3,LIB:4},"G9-B-Reading":{ENG:5,LIB:5,BEN:3},
+  "G9-C-Spanish":{ENG:3},"G9-C-Reading":{ENG:5,LIB:5,BEN:3},
+  "G9-C-Writing":{ENG:5,BEN:4,HIN:3},"G9-C-Debate":{ENG:5,SST:4,HIN:3,BEN:3},
+};
+
+// Forced/specialist assignments (id → slot)
+const FORCED = {
+  1:"G3-B-Yoga", 23:"G3-C-Chess", 27:"G3-A", 68:"G3-C-Taekwondo",
+  48:"G6-A2",    76:"G6-B-Vocal", 111:"G6-B-Western", 125:"G6-B-Instrumental",
+  135:"G6-B-Eastern", 69:"G3-B-Squash", 136:"G3-B-Cricket", 126:"G3-B-TT",
+  105:"G9-B-Reading", 74:"G9-A-French", 58:"G4-A-Senior",
+};
+
+// ════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════
+const state = {
+  step: 1,
+  studentCounts: {},
+  fireReady: false,
+  result: null,   // { slots, groupHeads, clubHeads, actInCharges, unassigned }
+  filters: { seg: 'all', search: '', view: 'group' },
+  collapsed: {},
+};
+
+// Firebase live counts
+const q = query(collection(db,'students'));
+onSnapshot(q, snap => {
+  const cc={}, ac={};
+  snap.docs.forEach(d=>{
+    const s=d.data();
+    if(s.aC) cc[s.aC]=(cc[s.aC]||0)+1;
+    if(s.aA) ac[s.aA]=(ac[s.aA]||0)+1;
+  });
+  state.studentCounts = {...cc,...ac};
+  state.fireReady = true;
+  if(state.step===1) updateOverviewStats();
+});
+
+// ════════════════════════════════════════════════
+// ALGORITHM
+// ════════════════════════════════════════════════
+
+function scoreStaffForSlot(staff, slotId) {
+  // Cannot assign: no_allotment, deceased, left, replaced
+  const skip = ['no_allotment','deceased','left','replaced'];
+  if(skip.includes(staff.status)) return -999;
+
+  let score = 0;
+  const dept = staff.dept;
+
+  // 1. Activity/club-level fine affinity
+  const actAff = ACT_AFF[slotId];
+  if(actAff) score += (actAff[dept]||0) * 3;
+
+  // 2. Group-level dept affinity (fallback)
+  const groupIdx = parseInt(slotId.replace('G','').split('-')[0]) - 1;
+  if(!isNaN(groupIdx) && DEPT_AFF[dept]) score += (DEPT_AFF[dept][groupIdx]||0);
+
+  // 3. Continuity bonus — same slot as last year
+  if(staff.prevClub === slotId) score += 8;
+  // Soft continuity — was in same group last year
+  else if(staff.prevClub && staff.prevClub.startsWith(slotId.slice(0,2))) score += 3;
+
+  // 4. Leadership bonus — was head/in-charge last year
+  if(staff.prevRole === 'groupHead' && staff.prevClub === slotId) score += 5;
+  if(staff.prevRole === 'clubHead'  && staff.prevClub === slotId) score += 4;
+  if(staff.prevRole === 'inCharge'  && staff.prevClub === slotId) score += 3;
+
+  // 5. Penalty if floor discipline head (avoid overloading)
+  if(staff.floorDuty) score -= 2;
+
+  // 6. Penalty for leaving/temp
+  if(staff.status==='leaving'||staff.status==='temp') score -= 3;
+
+  return score;
+}
+
+function getAllSlots() {
+  // Returns flat array of {groupId, clubId, actId|null, label, tier}
+  const slots = [];
+  for(const g of CLUB_GROUPS) {
+    for(const club of g.clubs) {
+      if(club.activities) {
+        for(const act of club.activities) {
+          slots.push({groupId:g.id, clubId:club.id, actId:act.id,
+            label:`${g.name} › ${club.name} › ${act.name}`,
+            shortLabel:act.name, clubLabel:club.name, groupLabel:g.name,
+            segment:club.segment, groupColor:g.color});
+        }
+      } else {
+        slots.push({groupId:g.id, clubId:club.id, actId:null,
+          label:`${g.name} › ${club.name}`,
+          shortLabel:club.name, clubLabel:club.name, groupLabel:g.name,
+          segment:club.segment, groupColor:g.color});
+      }
+    }
+  }
+  return slots;
+}
+
+function runAllocation() {
+  const eligible = STAFF.filter(s=>!['no_allotment','deceased','left','replaced'].includes(s.status));
+  const pool = eligible.map(s=>({...s, assigned:[], load:0}));
+  const byId = {};
+  pool.forEach(s=>byId[s.id]=s);
+
+  const allSlots = getAllSlots();
+
+  // TIER 1: Force-assign specialist coaches/teachers (non-negotiable)
+  const forcedSlots = new Set();
+  const forcedStaffIds = new Set();
+  for(const [sid, slotId] of Object.entries(FORCED)) {
+    const staff = byId[parseInt(sid)];
+    if(!staff) continue;
+    staff.assigned.push({slotId, method:'forced', role:'inCharge'});
+    staff.load++;
+    forcedSlots.add(slotId);
+    forcedStaffIds.add(parseInt(sid));
+  }
+
+  // TIER 2: Build 3-tier roles for each club/activity
+  // For each GROUP: pick a Group Head (best scorer across the group's main slot)
+  // For each CLUB: pick a Club Head
+  // For each ACTIVITY: pick an In-Charge
+
+  const result = {}; // slotId → [{staff, role, score, method}]
+
+  // Helper: assign best available staff to a slot
+  function assignBest(slotId, role, maxLoad=2, excludeIds=new Set(), forceMethod=null) {
+    const scored = pool
+      .filter(s => !excludeIds.has(s.id) && s.load < maxLoad)
+      .map(s => ({s, score: scoreStaffForSlot(s, slotId)}))
+      .filter(x => x.score > -900)
+      .sort((a,b) => b.score - a.score);
+
+    if(!scored.length) return null;
+    const {s, score} = scored[0];
+    if(!result[slotId]) result[slotId] = [];
+    const method = forceMethod || (s.prevClub===slotId ? 'continuity' : score >= 12 ? 'matched' : 'admin');
+    result[slotId].push({staffId:s.id, role, score, method});
+    s.assigned.push({slotId, method, role});
+    s.load++;
+    return s.id;
+  }
+
+  // Process forced assignments first
+  for(const [sid, slotId] of Object.entries(FORCED)) {
+    const staff = byId[parseInt(sid)];
+    if(!staff) continue;
+    if(!result[slotId]) result[slotId] = [];
+    result[slotId].push({staffId:staff.id, role:'inCharge', score:99, method:'forced'});
+  }
+
+  // Group heads — one per group (best dept match across the group)
+  for(const g of CLUB_GROUPS) {
+    const repSlot = g.clubs[0].activities ? g.clubs[0].activities[0].id : g.clubs[0].id;
+    const gIdx = parseInt(g.id.replace('G','')) - 1;
+    const scored = pool
+      .filter(s => s.load < 2 && !['no_allotment','deceased','left','replaced'].includes(s.status))
+      .map(s => {
+        let sc = (DEPT_AFF[s.dept]?.[gIdx]||0)*3;
+        if(s.prevClub && s.prevClub.startsWith(g.id)) sc += 6;
+        if(s.prevRole==='groupHead' && s.prevClub && s.prevClub.startsWith(g.id)) sc += 8;
+        if(s.floorDuty) sc -= 2;
+        if(s.status==='leaving'||s.status==='temp') sc -= 5;
+        return {s, sc};
+      })
+      .sort((a,b)=>b.sc-a.sc);
+    if(scored.length) {
+      const {s, sc} = scored[0];
+      if(!result[`${g.id}-HEAD`]) result[`${g.id}-HEAD`] = [];
+      const method = s.prevRole==='groupHead' && s.prevClub?.startsWith(g.id) ? 'continuity' : sc>=15?'matched':'admin';
+      result[`${g.id}-HEAD`].push({staffId:s.id, role:'groupHead', score:sc, method});
+      s.assigned.push({slotId:`${g.id}-HEAD`, method, role:'groupHead'});
+      s.load++;
+    }
+  }
+
+  // Club heads & activity in-charges
+  for(const g of CLUB_GROUPS) {
+    for(const club of g.clubs) {
+      if(club.activities) {
+        // Club head
+        const clubHeadExclude = new Set(forcedStaffIds);
+        // prefer someone already in the group (pool with load bonus)
+        assignBest(club.id+'-HEAD', 'clubHead', 2, clubHeadExclude);
+
+        // Activity in-charges
+        for(const act of club.activities) {
+          if(result[act.id]?.length) continue; // already forced
+          const excl = new Set();
+          // Don't assign same person to 2 activities of same parent club
+          const alreadyInClub = pool.filter(s =>
+            s.assigned.some(a => a.slotId.startsWith(club.id))
+          ).map(s=>s.id);
+          alreadyInClub.forEach(id => excl.add(id));
+          assignBest(act.id, 'inCharge', 2, excl);
+          // Also assign a member (support)
+          const excl2 = new Set([...(result[act.id]||[]).map(x=>x.staffId)]);
+          assignBest(act.id+'-MEMBER', 'member', 2, excl2);
+        }
+      } else {
+        // Direct club (no activities) — assign head + members
+        if(!result[club.id]?.length) {
+          assignBest(club.id, 'clubHead', 2, new Set(forcedStaffIds));
+        }
+        // Add member
+        const excl = new Set((result[club.id]||[]).map(x=>x.staffId));
+        for(let m=0;m<2;m++) {
+          const assigned = assignBest(club.id+`-M${m}`, 'member', 2, excl);
+          if(assigned) excl.add(assigned);
+        }
+      }
+    }
+  }
+
+  // AI Data Science special: needs one COM + one MAT
+  const aiSlot = 'G4-C';
+  result[aiSlot] = [];
+  const comStaff = pool.filter(s=>s.dept==='COM'&&s.load<2).sort((a,b)=>scoreStaffForSlot(b,aiSlot)-scoreStaffForSlot(a,aiSlot));
+  const matStaff = pool.filter(s=>s.dept==='MAT'&&s.load<2).sort((a,b)=>scoreStaffForSlot(b,aiSlot)-scoreStaffForSlot(a,aiSlot));
+  if(comStaff.length) { result[aiSlot].push({staffId:comStaff[0].id,role:'inCharge',score:99,method:'matched'}); comStaff[0].load++; }
+  if(matStaff.length) { result[aiSlot].push({staffId:matStaff[0].id,role:'member',score:80,method:'matched'}); matStaff[0].load++; }
+
+  // Unassigned
+  const unassigned = pool.filter(s=>s.load===0&&!['no_allotment','deceased','left','replaced'].includes(s.status));
+
+  // Vacancies
+  const vacancies = [];
+  const leaving = STAFF.filter(s=>s.status==='leaving');
+  leaving.forEach(s=>{
+    if(s.prevClub) vacancies.push({slot:s.prevClub, reason:`${s.name} is leaving`});
+  });
+  vacancies.push({slot:'G3-C-Basketball', reason:'Manish Rajak resigned — needs replacement'});
+  vacancies.push({slot:'G3-C-Football', reason:'Subhojit Mazumder leaving'});
+
+  return {result, pool, byId, unassigned, vacancies};
+}
+
+// ════════════════════════════════════════════════
+// RENDERING
+// ════════════════════════════════════════════════
+
+const R = document.getElementById('root');
+const $ = id => document.getElementById(id);
+
+function toast(msg, type='i') {
+  const c=$('toasts'), t=document.createElement('div');
+  t.className=`toast ${type}`;
+  const ico=type==='s'?'✓':type==='e'?'✕':'ℹ';
+  const col=type==='s'?'var(--grn)':type==='e'?'var(--red)':'var(--acc)';
+  t.innerHTML=`<span style="font-weight:700;color:${col}">${ico}</span>${msg}`;
+  c.appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .4s';setTimeout(()=>t.remove(),400);},3200);
+}
+
+function chip(t,c,extra='') {
+  return `<span class="chip" style="background:${c}18;color:${c};border:1px solid ${c}33" ${extra}>${t}</span>`;
+}
+
+function segCol(s) { return s==='A'?'#4F7FFF':s==='B'?'#2ECC71':'#BC8CFF'; }
+
+function render() {
+  R.innerHTML=`<div class="main">
+    <div id="stepbar-container">${renderStepBar()}</div>
+    <div id="page-content" style="animation:fadeUp .3s ease"></div>
+  </div>`;
+  if(state.step===1) renderStep1();
+  else if(state.step===2) renderStep2();
+  else if(state.step===3) renderStep3();
+}
+
+function renderStepBar() {
+  const steps=[
+    {n:'01',t:'Overview',s:'Staff & groups'},
+    {n:'02',t:'Run Algorithm',s:'3-tier matching'},
+    {n:'03',t:'Review Results',s:'Export & finalise'}
+  ];
+  return `<div class="stepbar">${steps.map((st,i)=>`
+    <div class="step ${state.step===i+1?'active':state.step>i+1?'done clickable':''}"
+         onclick="${state.step>i+1?`goStep(${i+1})`:''}">
+      <div class="sn">${state.step>i+1?'✓':st.n}</div>
+      <div><div class="sl">${st.t}</div><div class="ss">${st.s}</div></div>
+      <div class="step-bar-accent"></div>
+    </div>`).join('')}</div>`;
+}
+
+// ── STEP 1: OVERVIEW ────────────────────────────
+function renderStep1() {
+  const pg=$('page-content');
+  const active = STAFF.filter(s=>!['no_allotment','deceased','left','replaced'].includes(s.status));
+  const activeCount = active.length;
+  const leavingCount = STAFF.filter(s=>s.status==='leaving').length;
+  const vacancyCount = STAFF.filter(s=>['resigned','left','leaving'].includes(s.status)).length;
+  const totalSlots = getAllSlots().length;
+
+  pg.innerHTML=`
+    <div class="sec-title">Staff Overview & Club Groups</div>
+    <div class="sec-sub">Review the complete picture before running the algorithm.</div>
+
+    <div class="g2" style="margin-bottom:20px">
+      <div class="stat"><div class="val" style="color:var(--acc)">${activeCount}</div><div class="lbl">Active Staff</div></div>
+      <div class="stat"><div class="val" style="color:var(--grn)">${CLUB_GROUPS.length}</div><div class="lbl">Club Groups</div></div>
+      <div class="stat"><div class="val" style="color:var(--teal)">${totalSlots}</div><div class="lbl">Slots to Fill</div></div>
+      <div class="stat"><div class="val" style="color:var(--amb)">${leavingCount}</div><div class="lbl">Flagged / Leaving</div></div>
+    </div>
+
+    <div class="warn-banner">⚠ <strong>Vacancies requiring replacement hire:</strong>
+      Basketball (Manish Rajak resigned) · Football (Subhojit Mazumder leaving) · Dance Juniors (Tuli Mukherjee leaving) · A new Computer/Hindi teacher expected.
+    </div>
+
+    <div id="overview-stats-bar" style="margin-bottom:16px"></div>
+
+    <div class="g2f" style="margin-bottom:20px">
+      <div>
+        <div class="card-hd" style="margin-bottom:10px">CLUB GROUPS (9 TOTAL)</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${CLUB_GROUPS.map(g=>`
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;background:var(--s1);border:1px solid var(--bdr);border-left:3px solid ${g.color};border-radius:6px">
+            <div style="display:flex;align-items:center;gap:9px">
+              <span>${g.icon}</span>
+              <span style="font-weight:600;font-size:13px">${g.name}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+              ${g.clubs.map(c=>`<span class="chip" style="background:${segCol(c.segment)}18;color:${segCol(c.segment)};border:1px solid ${segCol(c.segment)}33;font-size:9px">Seg ${c.segment}</span>`).join('')}
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>
+      <div>
+        <div class="card-hd" style="margin-bottom:10px">STAFF STATUS</div>
+        ${renderStaffStatusTable()}
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end">
+      <button class="btn btn-acc" onclick="goStep(2)" style="padding:11px 28px;font-size:13px">
+        ⚡ Run Algorithm →
+      </button>
+    </div>
+  `;
+  updateOverviewStats();
+}
+
+function updateOverviewStats() {
+  const el=$('overview-stats-bar');
+  if(!el||!state.fireReady) return;
+  let total=0;
+  Object.values(state.studentCounts).forEach(n=>total+=n);
+  el.innerHTML=`<div class="info-banner" style="margin-bottom:0">ℹ <span style="color:var(--mut2);font-family:'JetBrains Mono',monospace;font-size:11px">LIVE:</span> <strong>${total.toLocaleString()}</strong> students currently allocated across all clubs. Live headcount drives slot priority.</div>`;
+}
+
+function renderStaffStatusTable() {
+  const groups = [
+    {label:'Active', color:'var(--grn)', fn:s=>s.status==='active'},
+    {label:'Leaving Soon', color:'var(--amb)', fn:s=>s.status==='leaving'},
+    {label:'Temporary', color:'var(--teal)', fn:s=>s.status==='temp'},
+    {label:'Resigned / Left', color:'var(--red)', fn:s=>['resigned','left'].includes(s.status)},
+    {label:'No Allotment', color:'var(--mut)', fn:s=>s.status==='no_allotment'},
+    {label:'Deceased', color:'var(--mut)', fn:s=>s.status==='deceased'},
+  ];
+  return `<div style="display:flex;flex-direction:column;gap:6px">
+    ${groups.map(g=>{
+      const members = STAFF.filter(g.fn);
+      if(!members.length) return '';
+      return `<div style="padding:9px 13px;background:var(--s1);border:1px solid var(--bdr);border-radius:6px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <span style="font-size:11px;font-weight:600;color:${g.color}">${g.label}</span>
+          <span class="chip" style="background:${g.color}18;color:${g.color};border:1px solid ${g.color}33">${members.length}</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">
+          ${members.map(s=>`<span style="font-size:10px;color:var(--mut2);font-family:'JetBrains Mono',monospace">${s.name.split(' ')[0]}</span>`).join('<span style="color:var(--bdr2)"> · </span>')}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// ── STEP 2: RUN ──────────────────────────────────
+function renderStep2() {
+  const pg=$('page-content');
+  pg.innerHTML=`
+    <div style="text-align:center;padding:70px 20px">
+      <div style="font-size:52px;margin-bottom:20px;animation:spin 1s linear infinite;display:inline-block">⚡</div>
+      <div class="sec-title" style="text-align:center">Running 3-Tier Allocation Algorithm</div>
+      <div style="color:var(--mut);font-family:'JetBrains Mono',monospace;font-size:12px;margin-top:8px">
+        Scoring ${STAFF.filter(s=>!['no_allotment','deceased','left','replaced'].includes(s.status)).length} staff · ${getAllSlots().length} slots · 3 tiers
+      </div>
+    </div>`;
+  setTimeout(()=>{
+    state.result = runAllocation();
+    state.step = 3;
+    render();
+    $('exportBtn').disabled = false;
+    toast(`Allocation complete! ${state.result.pool.filter(s=>s.load>0).length} staff assigned across ${CLUB_GROUPS.length} club groups.`,'s');
+  }, 700);
+}
+
+// ── STEP 3: RESULTS ──────────────────────────────
+function renderStep3() {
+  const pg=$('page-content');
+  const {result, pool, unassigned, vacancies} = state.result;
+  const totalStaff = pool.length;
+  const assigned = pool.filter(s=>s.load>0).length;
+  const pct = Math.round(assigned/totalStaff*100);
+
+  pg.innerHTML=`
+    <div class="sec-title">Allocation Results</div>
+    <div class="sec-sub">3-tier assignment across all 9 club groups.</div>
+
+    <div class="g2" style="margin-bottom:18px">
+      <div class="stat">
+        <div class="val" style="color:var(--grn)">${assigned}</div>
+        <div class="lbl">Staff Assigned</div>
+        <div class="bar"><div class="bar-fill" style="width:${pct}%;background:var(--grn)"></div></div>
+      </div>
+      <div class="stat">
+        <div class="val" style="color:var(--red)">${unassigned.length}</div>
+        <div class="lbl">Unassigned</div>
+      </div>
+      <div class="stat">
+        <div class="val" style="color:var(--amb)">${vacancies.length}</div>
+        <div class="lbl">Vacancies</div>
+      </div>
+      <div class="stat">
+        <div class="val" style="color:var(--teal)">${pct}%</div>
+        <div class="lbl">Assignment Rate</div>
+        <div class="bar"><div class="bar-fill" style="width:${pct}%;background:var(--teal)"></div></div>
+      </div>
+    </div>
+
+    ${vacancies.length ? `<div class="conflict-banner">
+      ⚠ <strong>${vacancies.length} vacancy slot(s) need external recruitment:</strong>
+      ${vacancies.map(v=>`<span style="display:block;margin-top:4px;margin-left:20px;color:var(--amb)">• ${v.slot}: ${v.reason}</span>`).join('')}
+    </div>`:''}
+
+    ${unassigned.length?`<div class="warn-banner">
+      ⚠ <strong>Unassigned staff (${unassigned.length}):</strong>
+      ${unassigned.map(s=>`${chip(s.name,'#F0A500')}`).join(' ')}
+    </div>`:''}
+
+    <!-- Legend key -->
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px;font-size:11px;font-family:'JetBrains Mono',monospace">
+      <span>● <span style="color:var(--pink)">Forced</span> (specialist)</span>
+      <span>● <span style="color:var(--teal)">Continuity</span> (same as 2025-26)</span>
+      <span>● <span style="color:var(--grn)">Matched</span> (strong dept fit)</span>
+      <span>● <span style="color:var(--amb)">Admin</span> (best available)</span>
+    </div>
+
+    <!-- View toggle + filters -->
+    <div class="filterbar">
+      <div class="tabs">
+        <button class="tab ${state.filters.view==='group'?'on':''}" onclick="setView('group')">By Group</button>
+        <button class="tab ${state.filters.view==='staff'?'on':''}" onclick="setView('staff')">By Staff</button>
+      </div>
+      <input placeholder="🔍 Search staff or club…" value="${state.filters.search}"
+        oninput="setSearch(this.value)" style="max-width:220px"/>
+      <button class="filter-chip ${state.filters.seg==='all'?'on':''}" onclick="setSeg('all')">All</button>
+      <button class="filter-chip ${state.filters.seg==='A'?'on':''}" onclick="setSeg('A')">Seg A</button>
+      <button class="filter-chip ${state.filters.seg==='B'?'on':''}" onclick="setSeg('B')">Seg B</button>
+      <button class="filter-chip ${state.filters.seg==='C'?'on':''}" onclick="setSeg('C')">Seg C</button>
+      <button class="btn btn-out btn-sm" onclick="expandAll()">Expand All</button>
+      <button class="btn btn-out btn-sm" onclick="collapseAll()">Collapse All</button>
+    </div>
+
+    <div id="results-body">
+      ${state.filters.view==='group' ? renderGroupView() : renderStaffView()}
+    </div>
+
+    <div style="display:flex;justify-content:space-between;margin-top:16px">
+      <button class="btn btn-out" onclick="goStep(1)">← Overview</button>
+      <button class="btn btn-teal" onclick="exportResults()">⬇ Export Full CSV</button>
+    </div>
+  `;
+}
+
+function renderGroupView() {
+  const {result, byId} = state.result;
+  const search = state.filters.search.toLowerCase();
+
+  return CLUB_GROUPS.map((g,gi) => {
+    const head = result[`${g.id}-HEAD`]?.[0];
+    const headStaff = head ? byId[head.staffId] : null;
+    const collapsed = state.collapsed[g.id];
+
+    // Filter check
+    const matchesSeg = state.filters.seg==='all' || g.clubs.some(c=>c.segment===state.filters.seg);
+    if(!matchesSeg) return '';
+    if(search) {
+      const gMatch = g.name.toLowerCase().includes(search);
+      const staffMatch = g.clubs.some(club=>{
+        const slots = club.activities ? club.activities.map(a=>a.id) : [club.id];
+        return slots.some(sid=>(result[sid]||[]).some(x=>byId[x.staffId]?.name.toLowerCase().includes(search)));
+      });
+      if(!gMatch&&!staffMatch) return '';
+    }
+
+    return `<div class="group-card" style="--gc:${g.color};animation-delay:${gi*0.04}s">
+      <div class="group-card-hd" onclick="toggleGroup('${g.id}')">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="group-icon" style="background:${g.color}18;border:1px solid ${g.color}33">${g.icon}</div>
+          <div>
+            <div class="group-name">${g.name}</div>
+            <div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--mut);margin-top:2px">
+              ${g.clubs.map(c=>`<span style="color:${segCol(c.segment)}">${c.name} (${c.segment})</span>`).join(' · ')}
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          ${headStaff?`<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+            <span style="font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--mut);text-transform:uppercase">Group Head</span>
+            <span class="staff-pill ${head.method}" style="font-size:11px">
+              <span class="dot"></span>${headStaff.name.split(' ').slice(0,2).join(' ')}
+            </span>
+          </div>`:
+          `<span style="font-size:11px;color:var(--red);font-family:'JetBrains Mono',monospace">No head assigned</span>`}
+          <span style="color:var(--mut);font-size:16px">${collapsed?'▶':'▼'}</span>
+        </div>
+      </div>
+      <div class="group-body ${collapsed?'collapsed':''}">
+        ${g.clubs.map(club=>renderClubBlock(g, club, result, byId)).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderClubBlock(g, club, result, byId) {
+  const clubHeadSlot = club.id+'-HEAD';
+  const clubHead = result[clubHeadSlot]?.[0];
+  const clubHeadStaff = clubHead ? byId[clubHead.staffId] : null;
+
+  if(club.activities) {
+    return `<div class="club-row">
+      <div class="club-row-hd">
+        <div>
+          <span class="club-label">${club.name}</span>
+          <span class="seg-chip" style="background:${segCol(club.segment)}18;color:${segCol(club.segment)};border:1px solid ${segCol(club.segment)}33;margin-left:8px">Segment ${club.segment}</span>
+          ${club.note?`<span style="font-size:10px;color:var(--teal);margin-left:8px;font-family:'JetBrains Mono',monospace">★ ${club.note}</span>`:''}
+        </div>
+        ${clubHeadStaff?`<div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--mut);text-transform:uppercase">Club Head</span>
+          <span class="staff-pill ${clubHead.method}"><span class="dot"></span>${clubHeadStaff.name.split(' ').slice(0,2).join(' ')}</span>
+        </div>`:
+        `<span class="staff-pill vacant"><span class="dot"></span>Club Head Needed</span>`}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;padding-left:8px">
+        ${club.activities.map(act=>{
+          const assigned = result[act.id]||[];
+          const members  = result[act.id+'-MEMBER']||[];
+          const allPeople = [...assigned,...members];
+          return `<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:var(--s2);border-radius:6px;border:1px solid var(--bdr)">
+            <span style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--mut2);min-width:150px">${act.name}</span>
+            <div style="display:flex;flex-wrap:wrap;gap:5px;flex:1">
+              ${allPeople.map(x=>{
+                const s=byId[x.staffId];
+                if(!s) return '';
+                return `<span class="staff-pill ${x.method}" title="${s.name} · ${s.role} · Score:${x.score}">
+                  <span class="dot"></span>${s.name.split(' ').slice(0,2).join(' ')}
+                  <span style="font-size:9px;color:var(--mut);margin-left:2px">${x.role==='inCharge'?'(IC)':x.role==='member'?'(M)':''}</span>
+                </span>`;
+              }).join('')||`<span class="staff-pill vacant"><span class="dot"></span>Vacant</span>`}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  } else {
+    const assigned = result[club.id]||[];
+    const m0 = result[club.id+'-M0']||[];
+    const m1 = result[club.id+'-M1']||[];
+    const all = [...assigned,...m0,...m1];
+    return `<div class="club-row">
+      <div class="club-row-hd">
+        <div>
+          <span class="club-label">${club.name}</span>
+          <span class="seg-chip" style="background:${segCol(club.segment)}18;color:${segCol(club.segment)};border:1px solid ${segCol(club.segment)}33;margin-left:8px">Segment ${club.segment}</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${all.map(x=>{
+          const s=byId[x.staffId];
+          if(!s) return '';
+          return `<span class="staff-pill ${x.method}" title="${s.name} · ${s.dept} · ${s.role}">
+            <span class="dot"></span>${s.name.split(' ').slice(0,2).join(' ')}
+            <span style="font-size:9px;color:var(--mut);margin-left:2px">${x.role==='clubHead'?'(H)':x.role==='member'?'(M)':''}</span>
+          </span>`;
+        }).join('')||`<span class="staff-pill vacant"><span class="dot"></span>Vacant</span>`}
+      </div>
+    </div>`;
+  }
+}
+
+function renderStaffView() {
+  const {pool, byId, result} = state.result;
+  const search = state.filters.search.toLowerCase();
+  // Build reverse map: staffId → assignments
+  const assignMap = {};
+  pool.forEach(s=>{ assignMap[s.id] = s.assigned||[]; });
+
+  const filtered = pool.filter(s=>{
+    if(search && !s.name.toLowerCase().includes(search) && !s.role.toLowerCase().includes(search)) return false;
+    return true;
+  }).sort((a,b)=>a.name.localeCompare(b.name));
+
+  return `<div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>NAME</th><th>DEPT / ROLE</th><th>STATUS</th>
+        <th>ASSIGNMENTS</th><th>LOAD</th><th>PREV (25-26)</th>
+      </tr></thead>
+      <tbody>
+        ${filtered.map(s=>{
+          const skip = ['no_allotment','deceased','left','replaced'].includes(s.status);
+          const statusColor = s.status==='active'?'var(--grn)':s.status==='leaving'?'var(--amb)':s.status==='temp'?'var(--teal)':'var(--red)';
+          const assignments = (s.assigned||[]).filter(a=>!a.slotId.includes('HEAD')&&!a.slotId.includes('-M'));
+          return `<tr style="${skip?'opacity:.45':''}">
+            <td style="font-weight:600;font-size:12px">${s.name}${s.floorDuty?`<br><span style="font-size:9px;color:var(--teal);font-family:'JetBrains Mono',monospace">Floor ${s.floorDuty}</span>`:''}</td>
+            <td>
+              <span class="chip" style="background:var(--acc)15;color:var(--acc);border:1px solid var(--acc)22">${s.dept}</span>
+              <div style="font-size:10px;color:var(--mut);margin-top:3px">${s.role}</div>
+            </td>
+            <td><span class="chip" style="background:${statusColor}18;color:${statusColor};border:1px solid ${statusColor}33">${s.status}</span></td>
+            <td>${assignments.length?assignments.map(a=>{
+              const col = a.method==='forced'?'var(--pink)':a.method==='continuity'?'var(--teal)':a.method==='matched'?'var(--grn)':'var(--amb)';
+              return `<span class="chip" style="background:${col}15;color:${col};border:1px solid ${col}22;margin:1px">${a.slotId}</span>`;
+            }).join(''):`<span style="color:var(--mut);font-size:11px">${skip?'N/A':'—'}</span>`}</td>
+            <td style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:${s.load>0?'var(--grn)':'var(--mut)'}">${skip?'—':s.load}</td>
+            <td style="font-size:10px;color:var(--mut2);font-family:'JetBrains Mono',monospace">${s.prevClub||'—'}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+// ════════════════════════════════════════════════
+// EXPORT
+// ════════════════════════════════════════════════
+window.exportResults = () => {
+  if(!state.result) return;
+  const {result, byId, pool, vacancies} = state.result;
+  const rows = ['CLUB GROUP,SEGMENT,CLUB/ACTIVITY,ROLE TIER,STAFF NAME,DEPT,METHOD,SCORE,STATUS,PREV CLUB 25-26'];
+
+  for(const g of CLUB_GROUPS) {
+    // Group head
+    const gh = result[`${g.id}-HEAD`]?.[0];
+    if(gh) {
+      const s = byId[gh.staffId];
+      rows.push(`"${g.name}","ALL","${g.name}","Group Head","${s.name}","${s.dept}","${gh.method}","${gh.score}","${s.status}","${s.prevClub||''}"`);
+    }
+    for(const club of g.clubs) {
+      // Club head
+      const ch = result[`${club.id}-HEAD`]?.[0];
+      if(ch) {
+        const s=byId[ch.staffId];
+        rows.push(`"${g.name}","${club.segment}","${club.name}","Club Head","${s.name}","${s.dept}","${ch.method}","${ch.score}","${s.status}","${s.prevClub||''}"`);
+      }
+      if(club.activities) {
+        for(const act of club.activities) {
+          const assigned=[...(result[act.id]||[]),...(result[act.id+'-MEMBER']||[])];
+          assigned.forEach(x=>{
+            const s=byId[x.staffId];
+            if(!s) return;
+            rows.push(`"${g.name}","${club.segment}","${club.name} › ${act.name}","${x.role==='inCharge'?'In-Charge':'Member'}","${s.name}","${s.dept}","${x.method}","${x.score}","${s.status}","${s.prevClub||''}"`);
+          });
+        }
+      } else {
+        const all=[...(result[club.id]||[]),...(result[club.id+'-M0']||[]),...(result[club.id+'-M1']||[])];
+        all.forEach(x=>{
+          const s=byId[x.staffId];
+          if(!s) return;
+          rows.push(`"${g.name}","${club.segment}","${club.name}","${x.role==='clubHead'?'Club Head':'Member'}","${s.name}","${s.dept}","${x.method}","${x.score}","${s.status}","${s.prevClub||''}"`);
+        });
+      }
+    }
+  }
+  rows.push('');
+  rows.push('VACANCIES REQUIRING RECRUITMENT');
+  rows.push('SLOT,REASON');
+  vacancies.forEach(v=>rows.push(`"${v.slot}","${v.reason}"`));
+  rows.push('');
+  rows.push('UNASSIGNED STAFF');
+  rows.push('NAME,DEPT,ROLE,STATUS');
+  state.result.unassigned.forEach(s=>rows.push(`"${s.name}","${s.dept}","${s.role}","${s.status}"`));
+
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'}));
+  a.download='staff_allocation_gdgpsd_2026-27.csv';
+  a.click();
+  toast('Export complete!','s');
+};
+
+// ════════════════════════════════════════════════
+// INTERACTIVITY
+// ════════════════════════════════════════════════
+window.goStep = (n) => { state.step=n; render(); };
+window.toggleGroup = (id) => {
+  state.collapsed[id] = !state.collapsed[id];
+  const el=document.getElementById(`group-body-${id}`);
+  if(el) el.classList.toggle('collapsed');
+  // re-render just the toggle icon
+  const pg=$('results-body');
+  if(pg) pg.innerHTML = renderGroupView();
+};
+window.setView = (v) => { state.filters.view=v; $('results-body').innerHTML=v==='group'?renderGroupView():renderStaffView(); renderStep3(); };
+window.setSearch = (v) => { state.filters.search=v; if(state.result) $('results-body').innerHTML=state.filters.view==='group'?renderGroupView():renderStaffView(); };
+window.setSeg = (v) => { state.filters.seg=v; if(state.result) $('results-body').innerHTML=renderGroupView(); renderStep3(); };
+window.expandAll = () => { state.collapsed={}; $('results-body').innerHTML=renderGroupView(); };
+window.collapseAll = () => { CLUB_GROUPS.forEach(g=>state.collapsed[g.id]=true); $('results-body').innerHTML=renderGroupView(); };
+
+window.showLegend = () => {
+  const bg=document.createElement('div');
+  bg.className='modal-bg';
+  bg.onclick=e=>{ if(e.target===bg) bg.remove(); };
+  bg.innerHTML=`<div class="modal">
+    <div class="modal-title">Assignment Legend</div>
+    <div class="modal-sub">How staff are colour-coded in results</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      ${[
+        ['forced','var(--pink)','Forced — Specialist/Coach (non-negotiable, e.g. Karate Coach to Karate)'],
+        ['continuity','var(--teal)','Continuity — Same assignment as 2025-26 and still a strong fit'],
+        ['matched','var(--grn)','Matched — High dept affinity score (12+)'],
+        ['admin','var(--amb)','Admin — Best available, lower dept match'],
+      ].map(([cls,col,desc])=>`
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--s1);border-radius:6px;border:1px solid var(--bdr)">
+          <span class="staff-pill ${cls}" style="flex-shrink:0"><span class="dot"></span>Sample</span>
+          <span style="font-size:12px;color:var(--txt)">${desc}</span>
+        </div>`).join('')}
+    </div>
+    <div style="margin-top:16px">
+      <div style="font-size:11px;color:var(--mut);font-family:'JetBrains Mono',monospace;margin-bottom:8px">ROLE ABBREVIATIONS</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:11px;font-family:'JetBrains Mono',monospace">
+        <span>${chip('(H)','var(--acc)')} Club Head</span>
+        <span>${chip('(IC)','var(--teal)')} In-Charge of Activity</span>
+        <span>${chip('(M)','var(--mut2)')} Member / Support Staff</span>
+      </div>
+    </div>
+    <div style="margin-top:20px;text-align:right">
+      <button class="btn btn-out" onclick="this.closest('.modal-bg').remove()">Close</button>
+    </div>
+  </div>`;
+  document.body.appendChild(bg);
+};
+
+// Initial render
+render();
+</script>
+</body>
+</html>
