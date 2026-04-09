@@ -168,7 +168,7 @@ let form={name:"",p1:"",a1:"",p2:"",a2:"",p3:"",a3:""};
 let csvTxt="",csvErr="";
 let fSeg="ALL",fSt="ALL",fQ="",fGr="ALL";
 let cvGr="ALL",cvSec="ALL",cvEdit=null,cvEditVal="",cvNameEdit=null,cvNameVal="";
-let clubViewSeg="ALL",clubViewClub="ALL",clubViewAct="ALL";
+let clubViewSeg="ALL",clubViewClub="ALL";
 
 // ── LISTENERS ─────────────────────────────────────────────────────────────────
 onSnapshot(query(COL,orderBy("at","asc")),snap=>{
@@ -290,34 +290,7 @@ function exportClubViewXLSX(clubId){
 }
 
 
-// ── EXCEL (CSV) EXPORT FOR ONE ACTIVITY ──────────────────────────────────────
-function exportActXLSX(actId){
-  const act=ALL.flatMap(c=>c.acts||[]).find(a=>a.id===actId);
-  const cl=ALL.find(c=>c.acts?.some(a=>a.id===actId));
-  if(!act||!cl) return;
-  const mem=sortStudents(students.filter(s=>s.aA===actId));
-  const rows=[
-    `"GD GOENKA DAKSHINESWAR — ${cl.id}: ${cl.name} · ${act.name.toUpperCase()} — 2026-27"`,
-    `"Downloaded: ${new Date().toLocaleString()}"`,
-    `"Total in this activity: ${mem.length} / ${act.cap}"`,`""`
-  ];
-  const grades=[...new Set(mem.map(s=>s.grade))].sort((a,b)=>GRADES.indexOf(a)-GRADES.indexOf(b));
-  grades.forEach(gr=>{
-    const gm=mem.filter(s=>s.grade===gr);
-    rows.push(`""`,`"GRADE: ${gr} (${gm.length} students)"`);
-    const secs=[...new Set(gm.map(s=>s.section||"—"))].sort();
-    secs.forEach(sec=>{
-      const sm=sortStudents(gm.filter(s=>(s.section||"—")===sec));
-      rows.push(`""`,`"  Section: ${sec} (${sm.length} students)"`);
-      rows.push(`"#","Name","Grade","Section","Status","Entered By"`);
-      sm.forEach((s,i)=>rows.push([i+1,s.name,s.grade,s.section||"",s.pU||"",s.by||""].map(v=>`"${v}"`).join(",")));
-    });
-  });
-  dlCSV(`GDGoenka_${cl.id}_${act.name.replace(/[^a-zA-Z0-9]/g,"_")}.csv`,rows);
-  toast(`✓ ${act.name} exported`);
-}
-
-
+async function updateSection(fid, newSec){
   if(!fid) return;
   try{
     await setDoc(doc(db,"students",fid), {section: newSec.trim().toUpperCase()}, {merge:true});
@@ -827,65 +800,7 @@ function buildUI(){
   const clubViewSegs=["ALL","A","B","C"];
   const clubViewClubs=clubViewSeg==="ALL"?ALL:CLUBS[clubViewSeg]||[];
   const clubViewSelected=clubViewClub==="ALL"?null:gClub(clubViewClub);
-  // activities for the selected club (only clubs with sub-activities)
-  const clubViewActs=clubViewSelected?.acts||[];
-  const clubViewActSelected=clubViewAct==="ALL"?null:clubViewActs.find(a=>a.id===clubViewAct)||null;
-
-  // renders a single activity's grade→section table
-  const renderActPanel=(cl,act,sCol,showHeader)=>{
-    const mem=sortStudents(students.filter(s=>s.aC===cl.id&&s.aA===act.id));
-    const {ac:acC}=counts(students);
-    const filled=acC[act.id]||0;
-    const pct=Math.round(filled/act.cap*100);
-    const barCol=pct>=100?C.red:pct>=75?C.amb:C.grn;
-    if(!mem.length) return showHeader?`
-      <div style="background:${C.bdr}22;border:1px solid ${C.bdr};border-radius:6px;padding:12px 16px;margin-bottom:10px;opacity:.55">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:12px;font-weight:700;color:${C.mut}">${act.name}</span>
-          <span style="font-size:11px;color:${C.mut}">0/${act.cap} — empty</span>
-        </div>
-      </div>`:"";
-    const grades=[...new Set(mem.map(s=>s.grade))].sort((a,b)=>GRADES.indexOf(a)-GRADES.indexOf(b));
-    return `
-    <div style="border:1px solid ${sCol}44;border-radius:8px;margin-bottom:12px;overflow:hidden">
-      ${showHeader?`<div style="background:${sCol}12;border-bottom:1px solid ${sCol}33;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-        <div>
-          <span style="font-size:13px;font-weight:700;color:${sCol}">${act.name}</span>
-          <span style="font-size:11px;color:${C.mut};margin-left:10px">${filled}/${act.cap} members</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px">
-          <div style="width:90px;background:${C.bdr};border-radius:3px;height:5px"><div style="width:${pct}%;height:100%;background:${barCol};border-radius:3px"></div></div>
-          <button class="btn" onclick="EXAC('${act.id}')" style="background:${C.grn};font-size:11px;padding:5px 12px">↓ Excel</button>
-        </div>
-      </div>`:""}
-      <div style="padding:12px 16px">
-        ${grades.map(gr=>{
-          const gm=mem.filter(s=>s.grade===gr);
-          const secs=[...new Set(gm.map(s=>s.section||"—"))].sort();
-          return `<div style="margin-bottom:12px">
-            <div style="font-size:11px;font-weight:700;color:${C.mut};letter-spacing:1px;margin-bottom:6px">GRADE ${gr} · ${gm.length} students</div>
-            ${secs.map(sec=>{
-              const sm=sortStudents(gm.filter(s=>(s.section||"—")===sec));
-              return `<div style="margin-bottom:8px">
-                <div style="font-size:11px;color:${sCol};font-weight:700;margin-bottom:5px;padding-left:8px;border-left:2px solid ${sCol}44">Section ${sec} · ${sm.length} students</div>
-                <div class="ov"><table>
-                  <thead><tr>${["#","Name","Status","Entered By"].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
-                  <tbody>${sm.map((s,i)=>`<tr>
-                    <td style="color:${C.mut}">${i+1}</td>
-                    <td style="font-weight:600">${s.name}</td>
-                    <td>${chip(s.pU==="admin"?"Admin":s.pU?s.pU+" pref":s.rsn||"—",rc(s.pU||""))}</td>
-                    <td style="color:${C.mut};font-size:11px">${s.by||"—"}</td>
-                  </tr>`).join("")}</tbody>
-                </table></div>
-              </div>`;
-            }).join("")}
-          </div>`;
-        }).join("")}
-      </div>
-    </div>`;
-  };
-
-  // renders a full club panel (with or without activity sub-panels)
+  // build display: if a specific club is selected show it, else show all clubs in segment
   const renderClubPanel=(cl)=>{
     const mem=sortStudents(students.filter(s=>s.aC===cl.id));
     if(!mem.length) return `<div class="card" style="margin-bottom:12px;padding:14px 18px;opacity:.5">
@@ -896,48 +811,11 @@ function buildUI(){
     const grades=[...new Set(mem.map(s=>s.grade))].sort((a,b)=>GRADES.indexOf(a)-GRADES.indexOf(b));
     const sg2=seg(grades[0]);
     const sCol=sg2?SINFO[sg2].col:C.mut;
-
-    // If this club has activities — show activity sub-panels
-    if(cl.acts){
-      const actsToShow=clubViewActSelected&&clubViewActSelected.id.startsWith(cl.id)?[clubViewActSelected]:cl.acts;
-      return `<div class="card" style="margin-bottom:16px;padding:0;overflow:hidden">
-        <div style="background:${sCol}18;border-bottom:1px solid ${C.bdr};padding:12px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-          <div>
-            <div style="font-weight:700;font-size:14px;color:${sCol}">${cl.id}: ${cl.name}</div>
-            <div style="font-size:11px;color:${C.mut};margin-top:2px">${mem.length}/${cl.cap} total members across ${cl.acts.length} activities</div>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <button class="btn" onclick="EXCV('${cl.id}')" style="background:${C.acc};font-size:11px;padding:6px 14px">↓ Full Club Excel</button>
-          </div>
-        </div>
-        <div style="padding:14px 18px">
-          <div style="font-size:11px;color:${C.mut};font-weight:700;letter-spacing:1px;margin-bottom:10px">
-            ACTIVITIES — click ↓ Excel on any activity to download that sub-club roster
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin-bottom:14px">
-            ${cl.acts.map(a=>{
-              const n=acC[a.id]||0, p=Math.round(n/a.cap*100), bc=p>=100?C.red:p>=75?C.amb:C.grn;
-              const isSelAct=clubViewActSelected?.id===a.id;
-              return `<div onclick="clubViewAct='${isSelAct?"ALL":a.id}';render()" style="cursor:pointer;background:${isSelAct?sCol+"22":C.hd};border:1px solid ${isSelAct?sCol:C.bdr};border-radius:6px;padding:10px 14px;transition:border .15s">
-                <div style="font-size:12px;font-weight:700;color:${isSelAct?sCol:C.txt};margin-bottom:5px">${a.name}</div>
-                <div style="display:flex;align-items:center;gap:8px">
-                  <div style="flex:1;background:${C.bdr};border-radius:3px;height:4px"><div style="width:${p}%;height:100%;background:${bc};border-radius:3px"></div></div>
-                  <span style="font-size:11px;font-weight:700;color:${bc}">${n}/${a.cap}</span>
-                </div>
-              </div>`;
-            }).join("")}
-          </div>
-          ${actsToShow.map(a=>renderActPanel(cl,a,sCol,true)).join("")}
-        </div>
-      </div>`;
-    }
-
-    // Club without activities — show grade→section table directly
     return `<div class="card" style="margin-bottom:14px;padding:0;overflow:hidden">
       <div style="background:${sCol}18;border-bottom:1px solid ${C.bdr};padding:12px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <div>
           <div style="font-weight:700;font-size:14px;color:${sCol}">${cl.id}: ${cl.name}</div>
-          <div style="font-size:11px;color:${C.mut};margin-top:2px">${mem.length}/${cl.cap} members</div>
+          <div style="font-size:11px;color:${C.mut};margin-top:2px">${mem.length}/${cl.cap} members${cl.acts?" · "+cl.acts.map(a=>`${a.name}: ${acC[a.id]||0}/${a.cap}`).join(" · "):""}</div>
         </div>
         <button class="btn" onclick="EXCV('${cl.id}')" style="background:${C.grn};font-size:11px;padding:6px 14px">↓ Download Excel</button>
       </div>
@@ -952,13 +830,14 @@ function buildUI(){
               return `<div style="margin-bottom:10px">
                 <div style="font-size:11px;color:${sCol};font-weight:700;margin-bottom:6px;padding-left:8px;border-left:2px solid ${sCol}">Section ${sec} · ${sm.length} students</div>
                 <div class="ov"><table>
-                  <thead><tr>${["#","Name","Status","Entered By"].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
-                  <tbody>${sm.map((s,i)=>`<tr>
+                  <thead><tr>${["#","Name","Activity","Status","Entered By"].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
+                  <tbody>${sm.map((s,i)=>{ const a=s.aA?gAct(s.aC,s.aA):null; return `<tr>
                     <td style="color:${C.mut}">${i+1}</td>
                     <td style="font-weight:600">${s.name}</td>
+                    <td style="color:${C.mut}">${a?a.name:"—"}</td>
                     <td>${chip(s.pU==="admin"?"Admin":s.pU?s.pU+" pref":s.rsn||"—",rc(s.pU||""))}</td>
                     <td style="color:${C.mut};font-size:11px">${s.by||"—"}</td>
-                  </tr>`).join("")}</tbody>
+                  </tr>`; }).join("")}</tbody>
                 </table></div>
               </div>`;
             }).join("")}
@@ -967,26 +846,24 @@ function buildUI(){
       </div>
     </div>`;
   };
-
   const clubsToShow=clubViewSelected?[clubViewSelected]:(clubViewSeg==="ALL"?ALL:CLUBS[clubViewSeg]);
   const clubViewTab=`
   <div class="card" style="padding:12px 16px;margin-bottom:14px">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:4px">
       <div>
-        <div style="font-weight:700;font-size:15px;margin-bottom:2px">🏅 Club View — Activities & Grade/Section Breakdown</div>
-        <div style="font-size:12px;color:${C.mut}">Select a club · then click an activity tile to drill into that sub-club · download per-club or per-activity Excel</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:2px">🏫 Club View — Grade & Section Breakdown</div>
+        <div style="font-size:12px;color:${C.mut}">See each club's members grouped by grade and section · download individual club Excel</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <select style="width:130px" onchange="clubViewSeg=this.value;clubViewClub='ALL';clubViewAct='ALL';render()">
+        <select style="width:130px" onchange="clubViewSeg=this.value;clubViewClub='ALL';render()">
           ${clubViewSegs.map(s=>`<option value="${s}"${clubViewSeg===s?" selected":""}>${s==="ALL"?"All Segments":"Segment "+s}</option>`).join("")}
         </select>
-        <select style="width:220px" onchange="clubViewClub=this.value;clubViewAct='ALL';render()">
+        <select style="width:200px" onchange="clubViewClub=this.value;render()">
           <option value="ALL">All Clubs</option>
-          ${clubViewClubs.map(c=>`<option value="${c.id}"${clubViewClub===c.id?" selected":""}>${c.id}: ${c.name}${c.acts?" ⚡":""}</option>`).join("")}
+          ${clubViewClubs.map(c=>`<option value="${c.id}"${clubViewClub===c.id?" selected":""}>${c.id}: ${c.name}</option>`).join("")}
         </select>
       </div>
     </div>
-    ${clubViewSelected?.acts?`<div style="font-size:11px;color:${C.mut};margin-top:6px">⚡ This club has sub-activities — click a tile below to filter to that activity only, click again to deselect</div>`:""}
   </div>
   ${clubsToShow.filter(cl=>students.some(s=>s.aC===cl.id)||clubViewSelected).map(cl=>renderClubPanel(cl)).join("")}
   `;
@@ -1024,7 +901,6 @@ window.TS   = toggleSeg;
 window.US   = updateSection;
 window.UN   = updateName;
 window.EXCV = exportClubViewXLSX;
-window.EXAC = exportActXLSX;
 window.EM   = exportMaster;
 window.EC   = exportClubWise;
 window.EG   = exportGradeWise;
@@ -1048,7 +924,6 @@ Object.defineProperties(window,{
   cvNameVal:{get:()=>cvNameVal,set:v=>{cvNameVal=v;}},
   clubViewSeg:{get:()=>clubViewSeg,set:v=>{clubViewSeg=v;}},
   clubViewClub:{get:()=>clubViewClub,set:v=>{clubViewClub=v;}},
-  clubViewAct:{get:()=>clubViewAct,set:v=>{clubViewAct=v;}},
 });
 render();
 </script>
