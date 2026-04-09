@@ -857,39 +857,38 @@ function buildUI(){
                 const cl=gClub(s.aC), ac2=s.aA?gAct(s.aC,s.aA):null;
                 const isEditingSec=(cvEdit===s._id);
                 const isEditingName=(cvNameEdit===s._id);
-                const isDup=dupIds.has(s._id);
-                const canDelete=isAdmin||(teacher.by&&s.by===teacher.by);
-                return `<tr style="${isDup?"background:"+C.red+"15":!s.aC?"background:"+C.red+"0d":""}">
+                const canEdit=isAdmin||!!teacher.by;
+                return `<tr style="${!s.aC?"background:"+C.red+"0d":""}">
                   <td style="color:${C.mut}">${i+1}</td>
                   <td>
                     ${isEditingName
                       ?`<div style="display:flex;gap:5px;align-items:center">
-                          <input value="${cvNameVal.replace(/"/g,'&quot;')}" oninput="UNV(this.value)" onkeydown="if(event.key==='Enter')ENS('${s._id}');if(event.key==='Escape')ENC()" style="width:140px;padding:4px 7px;font-size:12px;text-transform:uppercase" placeholder="FULL NAME"/>
-                          <button class="btn" onclick="ENS('${s._id}')" style="background:${C.grn};padding:4px 10px;font-size:11px">✓</button>
-                          <button class="btnO" onclick="ENC()" style="padding:4px 8px;font-size:11px">✕</button>
+                          <input id="nameInp_${s._id}" value="${(cvNameVal||s.name).replace(/"/g,'&quot;').replace(/'/g,'&#39;')}" oninput="window._cv_nv=this.value" onkeydown="if(event.key==='Enter'){window._cv_save_name('${s._id}');}if(event.key==='Escape'){window._cv_cancel();}" style="width:140px;padding:4px 7px;font-size:12px;text-transform:uppercase" placeholder="FULL NAME" autofocus/>
+                          <button data-action="savename" data-id="${s._id}" class="btn" style="background:#3FB950;padding:4px 10px;font-size:11px">✓</button>
+                          <button data-action="cancelname" class="btnO" style="padding:4px 8px;font-size:11px">✕</button>
                         </div>`
                       :`<span style="display:inline-flex;align-items:center;gap:6px">
                           <span style="font-weight:600">${s.name}</span>
-                          ${canDelete?`<button onclick="ENE('${s._id}')" style="background:none;border:1px solid ${C.bdr};border-radius:4px;padding:2px 6px;font-size:11px;color:${C.mut}" title="Edit name">✎</button>`:""}
+                          ${canEdit?`<button data-action="editname" data-id="${s._id}" style="background:none;border:1px solid #30363D;border-radius:4px;padding:2px 6px;font-size:11px;color:#8B949E;cursor:pointer" title="Edit name">✎</button>`:""}
                         </span>`}
                   </td>
                   <td>
                     ${isEditingSec
                       ?`<div style="display:flex;gap:5px;align-items:center">
-                          <input value="${cvEditVal.replace(/"/g,'&quot;')}" oninput="USV(this.value)" onkeydown="if(event.key==='Enter')ESS('${s._id}');if(event.key==='Escape')ESC2()" maxlength="3" style="width:55px;padding:4px 7px;font-size:12px" placeholder="A"/>
-                          <button class="btn" onclick="ESS('${s._id}')" style="background:${C.grn};padding:4px 10px;font-size:11px">✓</button>
-                          <button class="btnO" onclick="ESC2()" style="padding:4px 8px;font-size:11px">✕</button>
+                          <input id="secInp_${s._id}" value="${(cvEditVal||s.section||"").replace(/"/g,'&quot;')}" oninput="window._cv_sv=this.value" onkeydown="if(event.key==='Enter'){window._cv_save_sec('${s._id}');}if(event.key==='Escape'){window._cv_cancel();}" maxlength="3" style="width:55px;padding:4px 7px;font-size:12px" placeholder="A" autofocus/>
+                          <button data-action="savesec" data-id="${s._id}" class="btn" style="background:#3FB950;padding:4px 10px;font-size:11px">✓</button>
+                          <button data-action="cancelsec" class="btnO" style="padding:4px 8px;font-size:11px">✕</button>
                         </div>`
                       :`<span style="display:inline-flex;align-items:center;gap:5px">
-                          ${chip(s.section||"—",C.acc)}
-                          ${canDelete?`<button onclick="ESE('${s._id}')" style="background:none;border:1px solid ${C.bdr};border-radius:4px;padding:2px 6px;font-size:11px;color:${C.mut}" title="Edit section">✎</button>`:""}
+                          <span class="chip" style="background:#2F81F722;color:#2F81F7;border:1px solid #2F81F744">${s.section||"—"}</span>
+                          ${canEdit?`<button data-action="editsec" data-id="${s._id}" style="background:none;border:1px solid #30363D;border-radius:4px;padding:2px 6px;font-size:11px;color:#8B949E;cursor:pointer" title="Edit section">✎</button>`:""}
                         </span>`}
                   </td>
                   <td style="font-weight:600;color:${cl?C.txt:C.red}">${cl?cl.id+": "+cl.name:"UNALLOCATED"}</td>
                   <td style="color:${C.mut}">${ac2?ac2.name:"—"}</td>
                   <td>${chip(s.pU==="admin"?"Admin":s.pU?s.pU+" pref":s.rsn||"—",rc(s.pU||""))}</td>
                   <td style="color:${C.mut};font-size:11px">${s.by||"—"}</td>
-                  <td>${canDelete?`<button onclick="${isAdmin?"DS":"DOE"}('${s._id}')" style="background:none;border:none;color:${isDup?C.red:C.mut};font-size:15px;line-height:1;opacity:${isDup?1:0.4}" title="${isDup?"Duplicate — click to remove":"Remove entry"}">🗑</button>`:""}</td>
+                  ${isAdmin?`<td><button onclick="DS('${s._id}')" style="background:none;border:none;color:#F85149;font-size:15px;line-height:1;cursor:pointer">✕</button></td>`:"<td></td>"}
                 </tr>`;
               }).join("")}
             </tbody>
@@ -942,22 +941,21 @@ function buildUI(){
                   <tbody>${sm.map((s,i)=>{ const a=s.aA?gAct(s.aC,s.aA):null;
                     const isEditingClubName=(cvNameEdit===s._id);
                     const isEditingClubSec=(cvEdit===s._id);
-                    const canEdit=isAdmin||(teacher.by&&s.by===teacher.by);
-                    const isDupClub=dupIds.has(s._id);
-                    return `<tr style="${isDupClub?"background:"+C.red+"15":""}">
-                    <td style="color:${C.mut}">${i+1}</td>
+                    const canEdit=isAdmin||!!teacher.by;
+                    return `<tr>
+                    <td style="color:#8B949E">${i+1}</td>
                     <td>${isEditingClubName
-                      ?`<div style="display:flex;gap:5px;align-items:center"><input value="${cvNameVal.replace(/"/g,'&quot;')}" oninput="UNV(this.value)" onkeydown="if(event.key==='Enter')ENS('${s._id}');if(event.key==='Escape')ENC()" style="width:130px;padding:4px 7px;font-size:12px;text-transform:uppercase"/><button class="btn" onclick="ENS('${s._id}')" style="background:${C.grn};padding:4px 8px;font-size:11px">✓</button><button class="btnO" onclick="ENC()" style="padding:4px 6px;font-size:11px">✕</button></div>`
-                      :`<span style="display:inline-flex;align-items:center;gap:5px"><span style="font-weight:600">${s.name}</span>${canEdit?`<button onclick="ENE('${s._id}')" style="background:none;border:1px solid ${C.bdr};border-radius:4px;padding:2px 5px;font-size:11px;color:${C.mut}" title="Edit name">✎</button>`:""}</span>`}
+                      ?`<div style="display:flex;gap:5px;align-items:center"><input id="nameInp_${s._id}" value="${(cvNameVal||s.name).replace(/"/g,'&quot;').replace(/'/g,'&#39;')}" oninput="window._cv_nv=this.value" onkeydown="if(event.key==='Enter'){window._cv_save_name('${s._id}');}if(event.key==='Escape'){window._cv_cancel();}" style="width:130px;padding:4px 7px;font-size:12px;text-transform:uppercase" autofocus/><button data-action="savename" data-id="${s._id}" class="btn" style="background:#3FB950;padding:4px 8px;font-size:11px">✓</button><button data-action="cancelname" class="btnO" style="padding:4px 6px;font-size:11px">✕</button></div>`
+                      :`<span style="display:inline-flex;align-items:center;gap:5px"><span style="font-weight:600">${s.name}</span>${canEdit?`<button data-action="editname" data-id="${s._id}" style="background:none;border:1px solid #30363D;border-radius:4px;padding:2px 5px;font-size:11px;color:#8B949E;cursor:pointer" title="Edit name">✎</button>`:""}</span>`}
                     </td>
                     <td>${isEditingClubSec
-                      ?`<div style="display:flex;gap:5px;align-items:center"><input value="${cvEditVal.replace(/"/g,'&quot;')}" oninput="USV(this.value)" onkeydown="if(event.key==='Enter')ESS('${s._id}');if(event.key==='Escape')ESC2()" maxlength="3" style="width:50px;padding:4px 6px;font-size:12px" placeholder="A"/><button class="btn" onclick="ESS('${s._id}')" style="background:${C.grn};padding:4px 8px;font-size:11px">✓</button><button class="btnO" onclick="ESC2()" style="padding:4px 6px;font-size:11px">✕</button></div>`
-                      :`<span style="display:inline-flex;align-items:center;gap:4px">${`<span class="chip" style="background:${C.acc}22;color:${C.acc};border:1px solid ${C.acc}44">${s.section||"—"}</span>`}${canEdit?`<button onclick="ESE('${s._id}')" style="background:none;border:1px solid ${C.bdr};border-radius:4px;padding:2px 5px;font-size:11px;color:${C.mut}" title="Edit section">✎</button>`:""}</span>`}
+                      ?`<div style="display:flex;gap:5px;align-items:center"><input id="secInp_${s._id}" value="${(cvEditVal||s.section||"").replace(/"/g,'&quot;')}" oninput="window._cv_sv=this.value" onkeydown="if(event.key==='Enter'){window._cv_save_sec('${s._id}');}if(event.key==='Escape'){window._cv_cancel();}" maxlength="3" style="width:50px;padding:4px 6px;font-size:12px" placeholder="A" autofocus/><button data-action="savesec" data-id="${s._id}" class="btn" style="background:#3FB950;padding:4px 8px;font-size:11px">✓</button><button data-action="cancelsec" class="btnO" style="padding:4px 6px;font-size:11px">✕</button></div>`
+                      :`<span style="display:inline-flex;align-items:center;gap:4px"><span class="chip" style="background:#2F81F722;color:#2F81F7;border:1px solid #2F81F744">${s.section||"—"}</span>${canEdit?`<button data-action="editsec" data-id="${s._id}" style="background:none;border:1px solid #30363D;border-radius:4px;padding:2px 5px;font-size:11px;color:#8B949E;cursor:pointer" title="Edit section">✎</button>`:""}</span>`}
                     </td>
-                    <td style="color:${C.mut}">${a?a.name:"—"}</td>
+                    <td style="color:#8B949E">${a?a.name:"—"}</td>
                     <td>${chip(s.pU==="admin"?"Admin":s.pU?s.pU+" pref":s.rsn||"—",rc(s.pU||""))}</td>
-                    <td style="color:${C.mut};font-size:11px">${s.by||"—"}</td>
-                    <td>${canEdit?`<button onclick="${isAdmin?"DS":"DOE"}('${s._id}')" style="background:none;border:none;color:${isDupClub?C.red:C.mut};font-size:15px;line-height:1;opacity:${isDupClub?1:0.4}" title="${isDupClub?"Duplicate — click to remove":"Remove entry"}">🗑</button>`:""}</td>
+                    <td style="color:#8B949E;font-size:11px">${s.by||"—"}</td>
+                    ${isAdmin?`<td><button onclick="DS('${s._id}')" style="background:none;border:none;color:#F85149;font-size:15px;line-height:1;cursor:pointer">✕</button></td>`:"<td></td>"}
                   </tr>`; }).join("")}</tbody>
                 </table></div>
               </div>`;
@@ -1085,45 +1083,73 @@ window.DLT  = ()=>dlCSV("Template_GDGoenka.csv",[
 ]);
 window.render = render;
 
-// ── EDIT STATE HELPERS (called from inline onclick — must be global) ──────────
-// These replace fragile multi-statement inline onclick strings entirely.
-// A student name containing ' or " would break inline JS; these avoid that.
-window.ENE = function(id){          // Edit Name Enter  — open name input
-  cvNameEdit=id;
-  const s=students.find(x=>x._id===id);
-  cvNameVal=s?s.name:"";
+// ── EDIT via event delegation — attached after every render() ─────────────────
+// All edit state lives in module-scope vars (cvNameEdit, cvEdit, etc.)
+// Buttons use data-action / data-id — no inline JS touching module vars at all.
+window._cv_nv = "";   // live name input value
+window._cv_sv = "";   // live section input value
+
+window._cv_save_name = function(id){
+  const val = (window._cv_nv||"").trim().toUpperCase();
+  if(!id||!val) return;
+  setDoc(doc(db,"students",id),{name:val},{merge:true})
+    .then(()=>{ cvNameEdit=null; cvNameVal=""; toast(`✓ Name → "${val}"`,C.grn); })
+    .catch(e=>toast("Update failed: "+e.message,C.red));
+};
+window._cv_save_sec = function(id){
+  const val = (window._cv_sv||"").trim().toUpperCase();
+  if(!id) return;
+  setDoc(doc(db,"students",id),{section:val},{merge:true})
+    .then(()=>{ cvEdit=null; cvEditVal=""; toast(`✓ Section → "${val||"(blank)"}"`); })
+    .catch(e=>toast("Update failed: "+e.message,C.red));
+};
+window._cv_cancel = function(){
+  cvNameEdit=null; cvNameVal="";
+  cvEdit=null; cvEditVal="";
   render();
 };
-window.ENC = function(){            // Edit Name Cancel
-  cvNameEdit=null; cvNameVal=""; render();
-};
-window.ENS = function(id){          // Edit Name Save
-  UN(id, cvNameVal);
-};
-window.ESE = function(id){          // Edit Section Enter — open section input
-  cvEdit=id;
-  const s=students.find(x=>x._id===id);
-  cvEditVal=s?s.section||"":"";
-  render();
-};
-window.ESC2 = function(){           // Edit Section Cancel
-  cvEdit=null; cvEditVal=""; render();
-};
-window.ESS = function(id){          // Edit Section Save
-  US(id, cvEditVal);
-};
-window.UNV = function(v){           // Update name value (from oninput)
-  cvNameVal=v;
-};
-window.USV = function(v){           // Update section value (from oninput)
-  cvEditVal=v;
-};
-window.STBY = function(v){          // Set Teacher By — from Class/Club View prompt
-  const name=v.trim().toUpperCase();
+
+window.STBY = function(v){
+  const name=(v||"").trim().toUpperCase();
   if(!name) return;
   teacher.by=name;
   localStorage.setItem("gdg_teacher_by",name);
   render();
+};
+
+// Attach delegated click handler once after each render
+const _origRender = render;
+window.render = function(){
+  _origRender();
+  const root = document.getElementById("root");
+  if(!root) return;
+  root.onclick = function(e){
+    const btn = e.target.closest("[data-action]");
+    if(!btn) return;
+    const action = btn.dataset.action;
+    const id     = btn.dataset.id;
+    if(action==="editname"){
+      const s = students.find(x=>x._id===id);
+      cvNameEdit=id; cvNameVal=s?s.name:"";
+      window._cv_nv = cvNameVal;
+      render();
+      setTimeout(()=>{ const el=document.getElementById("nameInp_"+id); if(el){el.focus();el.select();} },30);
+    } else if(action==="savename"){
+      window._cv_save_name(id);
+    } else if(action==="cancelname"){
+      window._cv_cancel();
+    } else if(action==="editsec"){
+      const s = students.find(x=>x._id===id);
+      cvEdit=id; cvEditVal=s?s.section||"":"";
+      window._cv_sv = cvEditVal;
+      render();
+      setTimeout(()=>{ const el=document.getElementById("secInp_"+id); if(el){el.focus();el.select();} },30);
+    } else if(action==="savesec"){
+      window._cv_save_sec(id);
+    } else if(action==="cancelsec"){
+      window._cv_cancel();
+    }
+  };
 };
 // expose state so inline onchange handlers work
 Object.defineProperties(window,{
