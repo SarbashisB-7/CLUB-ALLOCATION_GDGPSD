@@ -167,7 +167,8 @@ let teacher={by:"",grade:"",sec:""};
 let form={name:"",p1:"",a1:"",p2:"",a2:"",p3:"",a3:""};
 let csvTxt="",csvErr="";
 let fSeg="ALL",fSt="ALL",fQ="",fGr="ALL";
-let cvGr="ALL",cvSec="ALL",cvEdit=null,cvEditVal="";
+let cvGr="ALL",cvSec="ALL",cvEdit=null,cvEditVal="",cvNameEdit=null,cvNameVal="";
+let clubViewSeg="ALL",clubViewClub="ALL";
 
 // ── LISTENERS ─────────────────────────────────────────────────────────────────
 onSnapshot(query(COL,orderBy("at","asc")),snap=>{
@@ -243,7 +244,52 @@ async function importCSV(){
   render();
 }
 
-// ── UPDATE SECTION ────────────────────────────────────────────────────────────
+// ── UPDATE NAME ───────────────────────────────────────────────────────────────
+async function updateName(fid, newName){
+  if(!fid||!newName.trim()) return;
+  try{
+    await setDoc(doc(db,"students",fid), {name: newName.trim().toUpperCase()}, {merge:true});
+    cvNameEdit=null; cvNameVal="";
+    toast(`Name updated to "${newName.trim().toUpperCase()}"`, C.grn);
+  } catch(e){ toast("Update failed: "+e.message, C.red); }
+}
+
+// ── DELETE OWN ENTRY ──────────────────────────────────────────────────────────
+async function delOwnEntry(fid){
+  if(!fid) return;
+  if(!confirm("Remove this entry? The student will be unregistered from their club.")) return;
+  try{ await deleteDoc(doc(db,"students",fid)); toast("Entry removed",C.amb); }
+  catch(e){ toast("Delete failed: "+e.message,C.red); }
+}
+
+// ── EXCEL (CSV) EXPORT FOR ONE CLUB ──────────────────────────────────────────
+function exportClubViewXLSX(clubId){
+  const cl=gClub(clubId); if(!cl) return;
+  const mem=sortStudents(students.filter(s=>s.aC===clubId));
+  const {ac}=counts(students);
+  const rows=[
+    `"GD GOENKA DAKSHINESWAR — ${cl.id}: ${cl.name.toUpperCase()} — 2026-27"`,
+    `"Downloaded: ${new Date().toLocaleString()}"`,
+    `"Total members: ${mem.length} / ${cl.cap}"`,`""`
+  ];
+  if(cl.acts){ rows.push(`"ACTIVITY BREAKDOWN"`); cl.acts.forEach(a=>rows.push(`"  ${a.name}:","${ac[a.id]||0}/${a.cap}"`)); rows.push(`""`); }
+  const grades=[...new Set(mem.map(s=>s.grade))].sort((a,b)=>GRADES.indexOf(a)-GRADES.indexOf(b));
+  grades.forEach(gr=>{
+    const gm=mem.filter(s=>s.grade===gr);
+    rows.push(`""`,`"GRADE: ${gr} (${gm.length} students)"`);
+    const secs=[...new Set(gm.map(s=>s.section||"—"))].sort();
+    secs.forEach(sec=>{
+      const sm=sortStudents(gm.filter(s=>(s.section||"—")===sec));
+      rows.push(`""`,`"  Section: ${sec} (${sm.length} students)"`);
+      rows.push(`"#","Name","Grade","Section","Activity","Status","Entered By"`);
+      sm.forEach((s,i)=>{ const a=s.aA?gAct(s.aC,s.aA):null; rows.push([i+1,s.name,s.grade,s.section||"",a?a.name:"",s.pU||"",s.by||""].map(v=>`"${v}"`).join(",")); });
+    });
+  });
+  dlCSV(`GDGoenka_${cl.id}_${cl.name.replace(/[^a-zA-Z0-9]/g,"_")}.csv`,rows);
+  toast(`✓ ${cl.name} exported`);
+}
+
+
 async function updateSection(fid, newSec){
   if(!fid) return;
   try{
@@ -334,8 +380,8 @@ function buildUI(){
   const usedGr=[...new Set(students.map(r=>r.grade))].sort((a,b)=>GRADES.indexOf(a)-GRADES.indexOf(b));
 
   const TABS=isAdmin
-    ?[["entry","📝 Entry"],["bulk","📤 Bulk"],["results","📊 Results"],["exports","📁 Export"],["capacity","🏫 Capacity"],["classview","🎓 Class View"],["access","🔐 Access"],["guide","📖 Guide"]]
-    :[["entry","📝 Entry"],["classview","🎓 Class View"],["capacity","🏫 Live Capacity"],["guide","📖 Guide"]];
+    ?[["entry","📝 Entry"],["bulk","📤 Bulk"],["results","📊 Results"],["exports","📁 Export"],["capacity","🏫 Capacity"],["classview","🎓 Class View"],["clubview","🏅 Club View"],["access","🔐 Access"],["guide","📖 Guide"]]
+    :[["entry","📝 Entry"],["classview","🎓 Class View"],["clubview","🏅 Club View"],["capacity","🏫 Live Capacity"],["guide","📖 Guide"]];
 
   const toastHTML=`<div style="position:fixed;top:14px;right:14px;z-index:999;display:flex;flex-direction:column;gap:8px;align-items:flex-end">
     ${toasts.map(t=>`<div style="background:${t.col};color:#fff;border-radius:8px;padding:10px 16px;font-size:12px;font-weight:600;animation:slideIn .25s ease;box-shadow:0 4px 20px ${t.col}55;max-width:340px"><div>${t.msg}</div>${t.sub?`<div style="font-size:10px;opacity:.85;margin-top:3px">${t.sub}</div>`:""}</div>`).join("")}
@@ -658,24 +704,21 @@ function buildUI(){
   const cvGrades = ["ALL",...GRADES.filter(g=>students.some(s=>s.grade===g))];
   const cvGradeStudents = cvGr==="ALL"?students:students.filter(s=>s.grade===cvGr);
   const cvSections = ["ALL",...[...new Set(cvGradeStudents.map(s=>s.section||"—"))].sort()];
-  const cvFiltered = sortStudents(
-    cvGradeStudents.filter(s=>(cvSec==="ALL"||(s.section||"—")===cvSec))
-  );
-  // Group by grade then section for the display
+  const cvFiltered = sortStudents(cvGradeStudents.filter(s=>(cvSec==="ALL"||(s.section||"—")===cvSec)));
   const cvGroups = {};
-  cvFiltered.forEach(s=>{
-    const gr = s.grade;
-    const sc = s.section||"—";
-    if(!cvGroups[gr]) cvGroups[gr]={};
-    if(!cvGroups[gr][sc]) cvGroups[gr][sc]=[];
-    cvGroups[gr][sc].push(s);
-  });
+  cvFiltered.forEach(s=>{ const gr=s.grade,sc=s.section||"—"; if(!cvGroups[gr]) cvGroups[gr]={}; if(!cvGroups[gr][sc]) cvGroups[gr][sc]=[]; cvGroups[gr][sc].push(s); });
+  // find duplicates: same name+grade entered by same teacher (more than once)
+  const dupIds=new Set();
+  if(!isAdmin && teacher.by){
+    const mine=students.filter(s=>s.by===teacher.by);
+    mine.forEach(s=>{ const copies=mine.filter(x=>x.name.trim().toLowerCase()===s.name.trim().toLowerCase()&&x.grade===s.grade); if(copies.length>1) copies.forEach(x=>dupIds.add(x._id)); });
+  }
   const classViewTab=`
   <div class="card" style="padding:12px 16px;margin-bottom:14px">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:4px">
       <div>
         <div style="font-weight:700;font-size:15px;margin-bottom:2px">🏫 Class View — Club Allocations</div>
-        <div style="font-size:12px;color:${C.mut}">Browse by grade & section · click ✎ to correct a student's section</div>
+        <div style="font-size:12px;color:${C.mut}">Browse by grade & section · ✎ edit name or section · 🗑 remove your own duplicate entries</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <select style="width:160px" onchange="cvGr=this.value;cvSec='ALL';render()">
@@ -687,6 +730,7 @@ function buildUI(){
         <span style="font-size:12px;color:${C.mut}">${cvFiltered.length} student${cvFiltered.length!==1?"s":""}</span>
       </div>
     </div>
+    ${dupIds.size>0?`<div style="background:${C.red}15;border:1px solid ${C.red}44;border-radius:6px;padding:9px 14px;margin-top:10px;font-size:12px;color:${C.red}">⚠ <b>${dupIds.size} duplicate entries</b> found in your submissions — highlighted in red below. Delete the extra copy using the 🗑 button.</div>`:""}
   </div>
   ${cvFiltered.length===0
     ?`<div class="card" style="text-align:center;padding:50px;color:${C.mut}">No students match this filter</div>`
@@ -703,31 +747,46 @@ function buildUI(){
           </div>
           <div class="ov"><table>
             <thead><tr>
-              ${["#","Name","Section","✦ Club Allocated","✦ Activity","Status","Entered By"].map(h=>`<th>${h}</th>`).join("")}
+              ${["#","Name","Section","✦ Club Allocated","✦ Activity","Status","Entered By",""].map(h=>`<th>${h}</th>`).join("")}
             </tr></thead>
             <tbody>
               ${mem.map((s,i)=>{
                 const cl=gClub(s.aC), ac2=s.aA?gAct(s.aC,s.aA):null;
-                const isEditing=(cvEdit===s._id);
-                return `<tr style="${!s.aC?"background:"+C.red+"0d":""}">
+                const isEditingSec=(cvEdit===s._id);
+                const isEditingName=(cvNameEdit===s._id);
+                const isDup=dupIds.has(s._id);
+                const canDelete=isAdmin||(teacher.by&&s.by===teacher.by);
+                return `<tr style="${isDup?"background:"+C.red+"15":!s.aC?"background:"+C.red+"0d":""}">
                   <td style="color:${C.mut}">${i+1}</td>
-                  <td style="font-weight:600">${s.name}</td>
                   <td>
-                    ${isEditing
-                      ?`<div style="display:flex;gap:6px;align-items:center">
-                          <input id="sec-inp-${s._id}" value="${cvEditVal}" oninput="cvEditVal=this.value" onkeydown="if(event.key==='Enter')US('${s._id}',cvEditVal);if(event.key==='Escape'){cvEdit=null;render();}" maxlength="3" style="width:60px;padding:4px 7px;font-size:12px" placeholder="A"/>
+                    ${isEditingName
+                      ?`<div style="display:flex;gap:5px;align-items:center">
+                          <input value="${cvNameVal}" oninput="cvNameVal=this.value" onkeydown="if(event.key==='Enter')UN('${s._id}',cvNameVal);if(event.key==='Escape'){cvNameEdit=null;render();}" style="width:140px;padding:4px 7px;font-size:12px;text-transform:uppercase" placeholder="FULL NAME"/>
+                          <button class="btn" onclick="UN('${s._id}',cvNameVal)" style="background:${C.grn};padding:4px 10px;font-size:11px">✓</button>
+                          <button class="btnO" onclick="cvNameEdit=null;render()" style="padding:4px 8px;font-size:11px">✕</button>
+                        </div>`
+                      :`<span style="display:inline-flex;align-items:center;gap:6px">
+                          <span style="font-weight:600">${s.name}</span>
+                          ${canDelete?`<button onclick="cvNameEdit='${s._id}';cvNameVal='${s.name}';render()" style="background:none;border:1px solid ${C.bdr};border-radius:4px;padding:2px 6px;font-size:11px;color:${C.mut}" title="Edit name">✎</button>`:""}
+                        </span>`}
+                  </td>
+                  <td>
+                    ${isEditingSec
+                      ?`<div style="display:flex;gap:5px;align-items:center">
+                          <input value="${cvEditVal}" oninput="cvEditVal=this.value" onkeydown="if(event.key==='Enter')US('${s._id}',cvEditVal);if(event.key==='Escape'){cvEdit=null;render();}" maxlength="3" style="width:55px;padding:4px 7px;font-size:12px" placeholder="A"/>
                           <button class="btn" onclick="US('${s._id}',cvEditVal)" style="background:${C.grn};padding:4px 10px;font-size:11px">✓</button>
                           <button class="btnO" onclick="cvEdit=null;render()" style="padding:4px 8px;font-size:11px">✕</button>
                         </div>`
-                      :`<span style="display:inline-flex;align-items:center;gap:6px">
+                      :`<span style="display:inline-flex;align-items:center;gap:5px">
                           ${chip(s.section||"—",C.acc)}
-                          <button onclick="cvEdit='${s._id}';cvEditVal='${s.section||""}';render()" style="background:none;border:1px solid ${C.bdr};border-radius:4px;padding:2px 7px;font-size:11px;color:${C.mut}" title="Edit section">✎</button>
+                          ${canDelete?`<button onclick="cvEdit='${s._id}';cvEditVal='${s.section||""}';render()" style="background:none;border:1px solid ${C.bdr};border-radius:4px;padding:2px 6px;font-size:11px;color:${C.mut}" title="Edit section">✎</button>`:""}
                         </span>`}
                   </td>
                   <td style="font-weight:600;color:${cl?C.txt:C.red}">${cl?cl.id+": "+cl.name:"UNALLOCATED"}</td>
                   <td style="color:${C.mut}">${ac2?ac2.name:"—"}</td>
                   <td>${chip(s.pU==="admin"?"Admin":s.pU?s.pU+" pref":s.rsn||"—",rc(s.pU||""))}</td>
                   <td style="color:${C.mut};font-size:11px">${s.by||"—"}</td>
+                  <td>${canDelete?`<button onclick="${isAdmin?"DS":"DOE"}('${s._id}')" style="background:none;border:none;color:${isDup?C.red:C.mut};font-size:15px;line-height:1;opacity:${isDup?1:0.4}" title="${isDup?"Duplicate — click to remove":"Remove entry"}">🗑</button>`:""}</td>
                 </tr>`;
               }).join("")}
             </tbody>
@@ -737,6 +796,78 @@ function buildUI(){
     </div>`).join("")}
   `;
 
+  // ── CLUB VIEW TAB ──────────────────────────────────────────────────────────
+  const clubViewSegs=["ALL","A","B","C"];
+  const clubViewClubs=clubViewSeg==="ALL"?ALL:CLUBS[clubViewSeg]||[];
+  const clubViewSelected=clubViewClub==="ALL"?null:gClub(clubViewClub);
+  // build display: if a specific club is selected show it, else show all clubs in segment
+  const renderClubPanel=(cl)=>{
+    const mem=sortStudents(students.filter(s=>s.aC===cl.id));
+    if(!mem.length) return `<div class="card" style="margin-bottom:12px;padding:14px 18px;opacity:.5">
+      <div style="font-weight:700;font-size:13px">${cl.id}: ${cl.name}</div>
+      <div style="font-size:11px;color:${C.mut};margin-top:4px">No students allocated yet</div>
+    </div>`;
+    const {ac:acC}=counts(students);
+    const grades=[...new Set(mem.map(s=>s.grade))].sort((a,b)=>GRADES.indexOf(a)-GRADES.indexOf(b));
+    const sg2=seg(grades[0]);
+    const sCol=sg2?SINFO[sg2].col:C.mut;
+    return `<div class="card" style="margin-bottom:14px;padding:0;overflow:hidden">
+      <div style="background:${sCol}18;border-bottom:1px solid ${C.bdr};padding:12px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-weight:700;font-size:14px;color:${sCol}">${cl.id}: ${cl.name}</div>
+          <div style="font-size:11px;color:${C.mut};margin-top:2px">${mem.length}/${cl.cap} members${cl.acts?" · "+cl.acts.map(a=>`${a.name}: ${acC[a.id]||0}/${a.cap}`).join(" · "):""}</div>
+        </div>
+        <button class="btn" onclick="EXCV('${cl.id}')" style="background:${C.grn};font-size:11px;padding:6px 14px">↓ Download Excel</button>
+      </div>
+      <div style="padding:14px 18px">
+        ${grades.map(gr=>{
+          const gm=mem.filter(s=>s.grade===gr);
+          const secs=[...new Set(gm.map(s=>s.section||"—"))].sort();
+          return `<div style="margin-bottom:14px">
+            <div style="font-size:11px;font-weight:700;color:${C.mut};letter-spacing:1px;margin-bottom:8px">GRADE ${gr} · ${gm.length} students</div>
+            ${secs.map(sec=>{
+              const sm=sortStudents(gm.filter(s=>(s.section||"—")===sec));
+              return `<div style="margin-bottom:10px">
+                <div style="font-size:11px;color:${sCol};font-weight:700;margin-bottom:6px;padding-left:8px;border-left:2px solid ${sCol}">Section ${sec} · ${sm.length} students</div>
+                <div class="ov"><table>
+                  <thead><tr>${["#","Name","Activity","Status","Entered By"].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
+                  <tbody>${sm.map((s,i)=>{ const a=s.aA?gAct(s.aC,s.aA):null; return `<tr>
+                    <td style="color:${C.mut}">${i+1}</td>
+                    <td style="font-weight:600">${s.name}</td>
+                    <td style="color:${C.mut}">${a?a.name:"—"}</td>
+                    <td>${chip(s.pU==="admin"?"Admin":s.pU?s.pU+" pref":s.rsn||"—",rc(s.pU||""))}</td>
+                    <td style="color:${C.mut};font-size:11px">${s.by||"—"}</td>
+                  </tr>`; }).join("")}</tbody>
+                </table></div>
+              </div>`;
+            }).join("")}
+          </div>`;
+        }).join("")}
+      </div>
+    </div>`;
+  };
+  const clubsToShow=clubViewSelected?[clubViewSelected]:(clubViewSeg==="ALL"?ALL:CLUBS[clubViewSeg]);
+  const clubViewTab=`
+  <div class="card" style="padding:12px 16px;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:4px">
+      <div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:2px">🏫 Club View — Grade & Section Breakdown</div>
+        <div style="font-size:12px;color:${C.mut}">See each club's members grouped by grade and section · download individual club Excel</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select style="width:130px" onchange="clubViewSeg=this.value;clubViewClub='ALL';render()">
+          ${clubViewSegs.map(s=>`<option value="${s}"${clubViewSeg===s?" selected":""}>${s==="ALL"?"All Segments":"Segment "+s}</option>`).join("")}
+        </select>
+        <select style="width:200px" onchange="clubViewClub=this.value;render()">
+          <option value="ALL">All Clubs</option>
+          ${clubViewClubs.map(c=>`<option value="${c.id}"${clubViewClub===c.id?" selected":""}>${c.id}: ${c.name}</option>`).join("")}
+        </select>
+      </div>
+    </div>
+  </div>
+  ${clubsToShow.filter(cl=>students.some(s=>s.aC===cl.id)||clubViewSelected).map(cl=>renderClubPanel(cl)).join("")}
+  `;
+
   const tabs={
     entry:entryTab,
     bulk:isAdmin?bulkTab:`<div class="card" style="text-align:center;padding:40px;color:${C.mut}">Admin access required</div>`,
@@ -744,6 +875,7 @@ function buildUI(){
     exports:isAdmin?exportsTab:`<div class="card" style="text-align:center;padding:40px;color:${C.mut}">Admin access required</div>`,
     capacity:capacityTab,
     classview:classViewTab,
+    clubview:clubViewTab,
     access:isAdmin?accessTab:`<div class="card" style="text-align:center;padding:40px;color:${C.mut}">Admin access required</div>`,
     guide:guideTab
   };
@@ -762,10 +894,13 @@ window.TscR = v=>{ teacher.sec=v; render(); };
 window.Tgr  = v=>{ teacher.grade=v; form={name:form.name,p1:"",a1:"",p2:"",a2:"",p3:"",a3:""}; render(); };
 window.AS   = addStudent;
 window.DS   = delStudent;
+window.DOE  = delOwnEntry;
 window.CA   = clearAll;
 window.IC   = importCSV;
 window.TS   = toggleSeg;
 window.US   = updateSection;
+window.UN   = updateName;
+window.EXCV = exportClubViewXLSX;
 window.EM   = exportMaster;
 window.EC   = exportClubWise;
 window.EG   = exportGradeWise;
@@ -779,12 +914,16 @@ window.DLT  = ()=>dlCSV("Template_GDGoenka.csv",[
   `"Priya Roy","VII","B","B7","B7-Western","B6","B6-Yoga","B2","B2-Debate","Mr. Sen"`
 ]);
 window.render = render;
-// expose classview state so inline onchange handlers work
+// expose state so inline onchange handlers work
 Object.defineProperties(window,{
   cvGr:{get:()=>cvGr,set:v=>{cvGr=v;}},
   cvSec:{get:()=>cvSec,set:v=>{cvSec=v;}},
   cvEdit:{get:()=>cvEdit,set:v=>{cvEdit=v;}},
   cvEditVal:{get:()=>cvEditVal,set:v=>{cvEditVal=v;}},
+  cvNameEdit:{get:()=>cvNameEdit,set:v=>{cvNameEdit=v;}},
+  cvNameVal:{get:()=>cvNameVal,set:v=>{cvNameVal=v;}},
+  clubViewSeg:{get:()=>clubViewSeg,set:v=>{clubViewSeg=v;}},
+  clubViewClub:{get:()=>clubViewClub,set:v=>{clubViewClub=v;}},
 });
 render();
 </script>
