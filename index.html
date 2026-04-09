@@ -34,7 +34,6 @@ tr:hover td{background:#1C212860}
 </head>
 <body>
 <div id="root"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, addDoc, deleteDoc, doc,
@@ -164,12 +163,7 @@ function allocate(s,cc,ac){
 let students  = [];
 let segAccess = {A:false,B:false,C:false};
 let tab="entry", toasts=[];
-// Restore teacher identity from localStorage so edits work after refresh
-let teacher={
-  by:  localStorage.getItem("gdg_teacher_by")  ||"",
-  grade:localStorage.getItem("gdg_teacher_gr") ||"",
-  sec: localStorage.getItem("gdg_teacher_sec") ||""
-};
+let teacher={by:"",grade:"",sec:""};
 let form={name:"",p1:"",a1:"",p2:"",a2:"",p3:"",a3:""};
 let csvTxt="",csvErr="";
 let fSeg="ALL",fSt="ALL",fQ="",fGr="ALL";
@@ -268,114 +262,31 @@ async function delOwnEntry(fid){
   catch(e){ toast("Delete failed: "+e.message,C.red); }
 }
 
-// ── XLSX HELPERS ─────────────────────────────────────────────────────────────
-function xlsxDL(wb, filename){
-  const wbout = XLSX.write(wb, {bookType:'xlsx', type:'array'});
-  const blob = new Blob([wbout], {type:'application/octet-stream'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = filename; a.click();
-}
-function styleHeader(ws, cols){
-  // bold header row
-  cols.forEach((_,ci)=>{
-    const addr = XLSX.utils.encode_cell({r:0,c:ci});
-    if(!ws[addr]) return;
-    ws[addr].s = {font:{bold:true,color:{rgb:"FFFFFF"}},fill:{fgColor:{rgb:"1C2128"}},alignment:{horizontal:"center"}};
-  });
-}
-function autoWidth(ws, data){
-  const cols = Object.keys(data[0]||{});
-  ws['!cols'] = cols.map(k=>({ wch: Math.max(k.length, ...data.map(r=>String(r[k]||"").length)) + 2 }));
-}
-
-// ── EXCEL EXPORT: FULL CLUB (all grades/sections + optional per-activity sheets) ─
+// ── EXCEL (CSV) EXPORT FOR ONE CLUB ──────────────────────────────────────────
 function exportClubViewXLSX(clubId){
-  const cl = gClub(clubId); if(!cl) return;
-  const mem = sortStudents(students.filter(s=>s.aC===clubId));
-  const {ac:acC} = counts(students);
-  const wb = XLSX.utils.book_new();
-
-  // ── Sheet 1: Full roster ──────────────────────────────────────────────────
-  const rosterData = mem.map((s,i)=>{
-    const a = s.aA ? gAct(s.aC,s.aA) : null;
-    return {"#":i+1, "Student Name":s.name, "Grade":s.grade, "Section":s.section||"",
-            "Sub-Club / Activity":a?a.name:"—", "Allocation Status":s.pU==="admin"?"Admin Alloc":s.pU?s.pU+" preference":s.rsn||"",
-            "Entered By":s.by||""};
-  });
-  const wsRoster = XLSX.utils.json_to_sheet(rosterData);
-  autoWidth(wsRoster, rosterData);
-  // Title rows above data
-  XLSX.utils.sheet_add_aoa(wsRoster,[
-    [`GD Goenka Dakshineswar — ${cl.id}: ${cl.name} — Club Allocation 2026-27`],
-    [`Downloaded: ${new Date().toLocaleString()} | Members: ${mem.length}/${cl.cap}`],
-    []
-  ], {origin:"A1"});
-  XLSX.utils.sheet_add_json(wsRoster, rosterData, {origin:"A4", skipHeader:false});
-  wsRoster['!cols'] = [{wch:4},{wch:28},{wch:10},{wch:10},{wch:24},{wch:22},{wch:20}];
-  XLSX.utils.book_append_sheet(wb, wsRoster, "Full Roster");
-
-  // ── Sheet 2: Grade & Section Summary ────────────────────────────────────
-  const grades = [...new Set(mem.map(s=>s.grade))].sort((a,b)=>GRADES.indexOf(a)-GRADES.indexOf(b));
-  const summaryData = [];
+  const cl=gClub(clubId); if(!cl) return;
+  const mem=sortStudents(students.filter(s=>s.aC===clubId));
+  const {ac}=counts(students);
+  const rows=[
+    `"GD GOENKA DAKSHINESWAR — ${cl.id}: ${cl.name.toUpperCase()} — 2026-27"`,
+    `"Downloaded: ${new Date().toLocaleString()}"`,
+    `"Total members: ${mem.length} / ${cl.cap}"`,`""`
+  ];
+  if(cl.acts){ rows.push(`"ACTIVITY BREAKDOWN"`); cl.acts.forEach(a=>rows.push(`"  ${a.name}:","${ac[a.id]||0}/${a.cap}"`)); rows.push(`""`); }
+  const grades=[...new Set(mem.map(s=>s.grade))].sort((a,b)=>GRADES.indexOf(a)-GRADES.indexOf(b));
   grades.forEach(gr=>{
-    const secs = [...new Set(mem.filter(s=>s.grade===gr).map(s=>s.section||"—"))].sort();
+    const gm=mem.filter(s=>s.grade===gr);
+    rows.push(`""`,`"GRADE: ${gr} (${gm.length} students)"`);
+    const secs=[...new Set(gm.map(s=>s.section||"—"))].sort();
     secs.forEach(sec=>{
-      const sm = sortStudents(mem.filter(s=>s.grade===gr&&(s.section||"—")===sec));
-      sm.forEach((s,i)=>{
-        const a = s.aA ? gAct(s.aC,s.aA) : null;
-        summaryData.push({"Grade":s.grade,"Section":s.section||"","#":i+1,"Student Name":s.name,
-          "Sub-Club / Activity":a?a.name:"—","Status":s.pU==="admin"?"Admin":s.pU?s.pU+" pref":s.rsn||"","Entered By":s.by||""});
-      });
+      const sm=sortStudents(gm.filter(s=>(s.section||"—")===sec));
+      rows.push(`""`,`"  Section: ${sec} (${sm.length} students)"`);
+      rows.push(`"#","Name","Grade","Section","Activity","Status","Entered By"`);
+      sm.forEach((s,i)=>{ const a=s.aA?gAct(s.aC,s.aA):null; rows.push([i+1,s.name,s.grade,s.section||"",a?a.name:"",s.pU||"",s.by||""].map(v=>`"${v}"`).join(",")); });
     });
   });
-  const wsGS = XLSX.utils.json_to_sheet(summaryData);
-  wsGS['!cols'] = [{wch:10},{wch:10},{wch:4},{wch:28},{wch:24},{wch:16},{wch:20}];
-  XLSX.utils.book_append_sheet(wb, wsGS, "Grade-Section");
-
-  // ── Sheets per Activity (sub-club) ───────────────────────────────────────
-  if(cl.acts){
-    cl.acts.forEach(act=>{
-      const amem = sortStudents(mem.filter(s=>s.aA===act.id));
-      const aData = amem.map((s,i)=>{
-        return {"#":i+1,"Student Name":s.name,"Grade":s.grade,"Section":s.section||"",
-                "Status":s.pU==="admin"?"Admin":s.pU?s.pU+" pref":s.rsn||"","Entered By":s.by||""};
-      });
-      const wsA = XLSX.utils.json_to_sheet([]);
-      XLSX.utils.sheet_add_aoa(wsA,[
-        [`${act.name} — ${cl.id}: ${cl.name}`],
-        [`Members: ${amem.length}/${act.cap} | Downloaded: ${new Date().toLocaleString()}`],[]
-      ], {origin:"A1"});
-      XLSX.utils.sheet_add_json(wsA, aData.length?aData:[{"Note":"No students in this sub-club yet"}], {origin:"A4"});
-      wsA['!cols'] = [{wch:4},{wch:28},{wch:10},{wch:10},{wch:16},{wch:20}];
-      const sheetName = act.name.replace(/[^a-zA-Z0-9 ]/g,"").substring(0,28);
-      XLSX.utils.book_append_sheet(wb, wsA, sheetName);
-    });
-  }
-
-  xlsxDL(wb, `GDGoenka_${cl.id}_${cl.name.replace(/[^a-zA-Z0-9]/g,"_")}.xlsx`);
-  toast(`✓ ${cl.name} — Excel downloaded (${wb.SheetNames.length} sheets)`);
-}
-
-// ── EXCEL EXPORT: SINGLE ACTIVITY / SUB-CLUB ──────────────────────────────────
-function exportActivityXLSX(clubId, actId){
-  const cl = gClub(clubId); if(!cl) return;
-  const act = cl.acts?.find(a=>a.id===actId); if(!act) return;
-  const amem = sortStudents(students.filter(s=>s.aC===clubId&&s.aA===actId));
-  const wb = XLSX.utils.book_new();
-  const aData = amem.map((s,i)=>({
-    "#":i+1,"Student Name":s.name,"Grade":s.grade,"Section":s.section||"",
-    "Status":s.pU==="admin"?"Admin":s.pU?s.pU+" pref":s.rsn||"","Entered By":s.by||""
-  }));
-  const ws = XLSX.utils.json_to_sheet([]);
-  XLSX.utils.sheet_add_aoa(ws,[
-    [`GD Goenka Dakshineswar — ${cl.id}: ${cl.name} › ${act.name} — 2026-27`],
-    [`Members: ${amem.length}/${act.cap} | Downloaded: ${new Date().toLocaleString()}`],[]
-  ], {origin:"A1"});
-  XLSX.utils.sheet_add_json(ws, aData.length?aData:[{"Note":"No students allocated to this sub-club yet"}], {origin:"A4"});
-  ws['!cols'] = [{wch:4},{wch:28},{wch:10},{wch:10},{wch:16},{wch:20}];
-  XLSX.utils.book_append_sheet(wb, ws, act.name.replace(/[^a-zA-Z0-9 ]/g,"").substring(0,28)||"Activity");
-  xlsxDL(wb, `GDGoenka_${cl.id}_${act.name.replace(/[^a-zA-Z0-9]/g,"_")}.xlsx`);
-  toast(`✓ ${act.name} — Excel downloaded`);
+  dlCSV(`GDGoenka_${cl.id}_${cl.name.replace(/[^a-zA-Z0-9]/g,"_")}.csv`,rows);
+  toast(`✓ ${cl.name} exported`);
 }
 
 
@@ -803,17 +714,6 @@ function buildUI(){
     mine.forEach(s=>{ const copies=mine.filter(x=>x.name.trim().toLowerCase()===s.name.trim().toLowerCase()&&x.grade===s.grade); if(copies.length>1) copies.forEach(x=>dupIds.add(x._id)); });
   }
   const classViewTab=`
-  ${!teacher.by?`<div class="card" style="border:2px solid ${C.amb};padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-    <span style="font-size:20px">✏️</span>
-    <div style="flex:1;min-width:200px">
-      <div style="font-weight:700;font-size:13px;color:${C.amb};margin-bottom:4px">Enter your name to enable editing</div>
-      <div style="font-size:12px;color:${C.mut}">You can browse all entries, but to edit names or sections you must identify yourself.</div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <input id="cvTeacherInput" placeholder="YOUR NAME" style="width:180px;text-transform:uppercase;letter-spacing:.5px" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')STBY(document.getElementById('cvTeacherInput').value)"/>
-      <button class="btn" onclick="STBY(document.getElementById('cvTeacherInput').value)" style="background:${C.amb}">Set Name</button>
-    </div>
-  </div>`:""}
   <div class="card" style="padding:12px 16px;margin-bottom:14px">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:4px">
       <div>
@@ -828,11 +728,9 @@ function buildUI(){
           ${cvSections.map(s=>`<option value="${s}"${cvSec===s?" selected":""}>${s==="ALL"?"All Sections":"Section: "+s}</option>`).join("")}
         </select>
         <span style="font-size:12px;color:${C.mut}">${cvFiltered.length} student${cvFiltered.length!==1?"s":""}</span>
-        <button class="btn" onclick="DLCV()" style="background:${C.grn};font-size:11px;padding:6px 14px">⬇ Download Excel (.xlsx)</button>
       </div>
     </div>
     ${dupIds.size>0?`<div style="background:${C.red}15;border:1px solid ${C.red}44;border-radius:6px;padding:9px 14px;margin-top:10px;font-size:12px;color:${C.red}">⚠ <b>${dupIds.size} duplicate entries</b> found in your submissions — highlighted in red below. Delete the extra copy using the 🗑 button.</div>`:""}
-    ${teacher.by?`<div style="margin-top:8px;font-size:11px;color:${C.grn}">✓ Editing as <b>${teacher.by}</b> — ✎ buttons visible on your own entries</div>`:""}
   </div>
   ${cvFiltered.length===0
     ?`<div class="card" style="text-align:center;padding:50px;color:${C.mut}">No students match this filter</div>`
@@ -844,9 +742,8 @@ function buildUI(){
       ${Object.keys(cvGroups[gr]).sort().map(sec=>{
         const mem=cvGroups[gr][sec];
         return `<div class="card" style="margin-bottom:12px;padding:14px 16px">
-          <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:${C.acc};display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
-            <span>Section: ${sec} &nbsp;<span style="font-weight:400;font-size:11px;color:${C.mut}">${mem.length} student${mem.length!==1?"s":""}</span></span>
-            <button class="btn" onclick="DLCVSEC('${gr}','${sec}')" style="background:${C.acc};font-size:10px;padding:4px 10px">⬇ .xlsx</button>
+          <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:${C.acc}">
+            Section: ${sec} &nbsp;<span style="font-weight:400;font-size:11px;color:${C.mut}">${mem.length} student${mem.length!==1?"s":""}</span>
           </div>
           <div class="ov"><table>
             <thead><tr>
@@ -857,38 +754,39 @@ function buildUI(){
                 const cl=gClub(s.aC), ac2=s.aA?gAct(s.aC,s.aA):null;
                 const isEditingSec=(cvEdit===s._id);
                 const isEditingName=(cvNameEdit===s._id);
-                const canEdit=isAdmin||!!teacher.by;
-                return `<tr style="${!s.aC?"background:"+C.red+"0d":""}">
+                const isDup=dupIds.has(s._id);
+                const canDelete=isAdmin||(teacher.by&&s.by===teacher.by);
+                return `<tr style="${isDup?"background:"+C.red+"15":!s.aC?"background:"+C.red+"0d":""}">
                   <td style="color:${C.mut}">${i+1}</td>
                   <td>
                     ${isEditingName
                       ?`<div style="display:flex;gap:5px;align-items:center">
-                          <input id="nameInp_${s._id}" value="${(cvNameVal||s.name).replace(/"/g,'&quot;').replace(/'/g,'&#39;')}" oninput="window._cv_nv=this.value" onkeydown="if(event.key==='Enter'){window._cv_save_name('${s._id}');}if(event.key==='Escape'){window._cv_cancel();}" style="width:140px;padding:4px 7px;font-size:12px;text-transform:uppercase" placeholder="FULL NAME" autofocus/>
-                          <button data-action="savename" data-id="${s._id}" class="btn" style="background:#3FB950;padding:4px 10px;font-size:11px">✓</button>
-                          <button data-action="cancelname" class="btnO" style="padding:4px 8px;font-size:11px">✕</button>
+                          <input value="${cvNameVal}" oninput="cvNameVal=this.value" onkeydown="if(event.key==='Enter')UN('${s._id}',cvNameVal);if(event.key==='Escape'){cvNameEdit=null;render();}" style="width:140px;padding:4px 7px;font-size:12px;text-transform:uppercase" placeholder="FULL NAME"/>
+                          <button class="btn" onclick="UN('${s._id}',cvNameVal)" style="background:${C.grn};padding:4px 10px;font-size:11px">✓</button>
+                          <button class="btnO" onclick="cvNameEdit=null;render()" style="padding:4px 8px;font-size:11px">✕</button>
                         </div>`
                       :`<span style="display:inline-flex;align-items:center;gap:6px">
                           <span style="font-weight:600">${s.name}</span>
-                          ${canEdit?`<button data-action="editname" data-id="${s._id}" style="background:none;border:1px solid #30363D;border-radius:4px;padding:2px 6px;font-size:11px;color:#8B949E;cursor:pointer" title="Edit name">✎</button>`:""}
+                          ${canDelete?`<button onclick="cvNameEdit='${s._id}';cvNameVal='${s.name}';render()" style="background:none;border:1px solid ${C.bdr};border-radius:4px;padding:2px 6px;font-size:11px;color:${C.mut}" title="Edit name">✎</button>`:""}
                         </span>`}
                   </td>
                   <td>
                     ${isEditingSec
                       ?`<div style="display:flex;gap:5px;align-items:center">
-                          <input id="secInp_${s._id}" value="${(cvEditVal||s.section||"").replace(/"/g,'&quot;')}" oninput="window._cv_sv=this.value" onkeydown="if(event.key==='Enter'){window._cv_save_sec('${s._id}');}if(event.key==='Escape'){window._cv_cancel();}" maxlength="3" style="width:55px;padding:4px 7px;font-size:12px" placeholder="A" autofocus/>
-                          <button data-action="savesec" data-id="${s._id}" class="btn" style="background:#3FB950;padding:4px 10px;font-size:11px">✓</button>
-                          <button data-action="cancelsec" class="btnO" style="padding:4px 8px;font-size:11px">✕</button>
+                          <input value="${cvEditVal}" oninput="cvEditVal=this.value" onkeydown="if(event.key==='Enter')US('${s._id}',cvEditVal);if(event.key==='Escape'){cvEdit=null;render();}" maxlength="3" style="width:55px;padding:4px 7px;font-size:12px" placeholder="A"/>
+                          <button class="btn" onclick="US('${s._id}',cvEditVal)" style="background:${C.grn};padding:4px 10px;font-size:11px">✓</button>
+                          <button class="btnO" onclick="cvEdit=null;render()" style="padding:4px 8px;font-size:11px">✕</button>
                         </div>`
                       :`<span style="display:inline-flex;align-items:center;gap:5px">
-                          <span class="chip" style="background:#2F81F722;color:#2F81F7;border:1px solid #2F81F744">${s.section||"—"}</span>
-                          ${canEdit?`<button data-action="editsec" data-id="${s._id}" style="background:none;border:1px solid #30363D;border-radius:4px;padding:2px 6px;font-size:11px;color:#8B949E;cursor:pointer" title="Edit section">✎</button>`:""}
+                          ${chip(s.section||"—",C.acc)}
+                          ${canDelete?`<button onclick="cvEdit='${s._id}';cvEditVal='${s.section||""}';render()" style="background:none;border:1px solid ${C.bdr};border-radius:4px;padding:2px 6px;font-size:11px;color:${C.mut}" title="Edit section">✎</button>`:""}
                         </span>`}
                   </td>
                   <td style="font-weight:600;color:${cl?C.txt:C.red}">${cl?cl.id+": "+cl.name:"UNALLOCATED"}</td>
                   <td style="color:${C.mut}">${ac2?ac2.name:"—"}</td>
                   <td>${chip(s.pU==="admin"?"Admin":s.pU?s.pU+" pref":s.rsn||"—",rc(s.pU||""))}</td>
                   <td style="color:${C.mut};font-size:11px">${s.by||"—"}</td>
-                  ${isAdmin?`<td><button onclick="DS('${s._id}')" style="background:none;border:none;color:#F85149;font-size:15px;line-height:1;cursor:pointer">✕</button></td>`:"<td></td>"}
+                  <td>${canDelete?`<button onclick="${isAdmin?"DS":"DOE"}('${s._id}')" style="background:none;border:none;color:${isDup?C.red:C.mut};font-size:15px;line-height:1;opacity:${isDup?1:0.4}" title="${isDup?"Duplicate — click to remove":"Remove entry"}">🗑</button>`:""}</td>
                 </tr>`;
               }).join("")}
             </tbody>
@@ -914,17 +812,12 @@ function buildUI(){
     const sg2=seg(grades[0]);
     const sCol=sg2?SINFO[sg2].col:C.mut;
     return `<div class="card" style="margin-bottom:14px;padding:0;overflow:hidden">
-      <div style="background:${sCol}18;border-bottom:1px solid ${C.bdr};padding:12px 18px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+      <div style="background:${sCol}18;border-bottom:1px solid ${C.bdr};padding:12px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <div>
           <div style="font-weight:700;font-size:14px;color:${sCol}">${cl.id}: ${cl.name}</div>
           <div style="font-size:11px;color:${C.mut};margin-top:2px">${mem.length}/${cl.cap} members${cl.acts?" · "+cl.acts.map(a=>`${a.name}: ${acC[a.id]||0}/${a.cap}`).join(" · "):""}</div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-          <button class="btn" onclick="EXCV('${cl.id}')" style="background:${C.grn};font-size:11px;padding:6px 14px">⬇ Full Club Excel (.xlsx)</button>
-          ${cl.acts?`<div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
-            ${cl.acts.map(a=>`<button class="btn" onclick="EXCA('${cl.id}','${a.id}')" style="background:${C.teal};font-size:10px;padding:4px 9px" title="Download ${a.name} sub-club list">⬇ ${a.name}</button>`).join("")}
-          </div>`:""}
-        </div>
+        <button class="btn" onclick="EXCV('${cl.id}')" style="background:${C.grn};font-size:11px;padding:6px 14px">↓ Download Excel</button>
       </div>
       <div style="padding:14px 18px">
         ${grades.map(gr=>{
@@ -937,25 +830,13 @@ function buildUI(){
               return `<div style="margin-bottom:10px">
                 <div style="font-size:11px;color:${sCol};font-weight:700;margin-bottom:6px;padding-left:8px;border-left:2px solid ${sCol}">Section ${sec} · ${sm.length} students</div>
                 <div class="ov"><table>
-                  <thead><tr>${["#","Name","Section","Activity","Status","Entered By",""].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
-                  <tbody>${sm.map((s,i)=>{ const a=s.aA?gAct(s.aC,s.aA):null;
-                    const isEditingClubName=(cvNameEdit===s._id);
-                    const isEditingClubSec=(cvEdit===s._id);
-                    const canEdit=isAdmin||!!teacher.by;
-                    return `<tr>
-                    <td style="color:#8B949E">${i+1}</td>
-                    <td>${isEditingClubName
-                      ?`<div style="display:flex;gap:5px;align-items:center"><input id="nameInp_${s._id}" value="${(cvNameVal||s.name).replace(/"/g,'&quot;').replace(/'/g,'&#39;')}" oninput="window._cv_nv=this.value" onkeydown="if(event.key==='Enter'){window._cv_save_name('${s._id}');}if(event.key==='Escape'){window._cv_cancel();}" style="width:130px;padding:4px 7px;font-size:12px;text-transform:uppercase" autofocus/><button data-action="savename" data-id="${s._id}" class="btn" style="background:#3FB950;padding:4px 8px;font-size:11px">✓</button><button data-action="cancelname" class="btnO" style="padding:4px 6px;font-size:11px">✕</button></div>`
-                      :`<span style="display:inline-flex;align-items:center;gap:5px"><span style="font-weight:600">${s.name}</span>${canEdit?`<button data-action="editname" data-id="${s._id}" style="background:none;border:1px solid #30363D;border-radius:4px;padding:2px 5px;font-size:11px;color:#8B949E;cursor:pointer" title="Edit name">✎</button>`:""}</span>`}
-                    </td>
-                    <td>${isEditingClubSec
-                      ?`<div style="display:flex;gap:5px;align-items:center"><input id="secInp_${s._id}" value="${(cvEditVal||s.section||"").replace(/"/g,'&quot;')}" oninput="window._cv_sv=this.value" onkeydown="if(event.key==='Enter'){window._cv_save_sec('${s._id}');}if(event.key==='Escape'){window._cv_cancel();}" maxlength="3" style="width:50px;padding:4px 6px;font-size:12px" placeholder="A" autofocus/><button data-action="savesec" data-id="${s._id}" class="btn" style="background:#3FB950;padding:4px 8px;font-size:11px">✓</button><button data-action="cancelsec" class="btnO" style="padding:4px 6px;font-size:11px">✕</button></div>`
-                      :`<span style="display:inline-flex;align-items:center;gap:4px"><span class="chip" style="background:#2F81F722;color:#2F81F7;border:1px solid #2F81F744">${s.section||"—"}</span>${canEdit?`<button data-action="editsec" data-id="${s._id}" style="background:none;border:1px solid #30363D;border-radius:4px;padding:2px 5px;font-size:11px;color:#8B949E;cursor:pointer" title="Edit section">✎</button>`:""}</span>`}
-                    </td>
-                    <td style="color:#8B949E">${a?a.name:"—"}</td>
+                  <thead><tr>${["#","Name","Activity","Status","Entered By"].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
+                  <tbody>${sm.map((s,i)=>{ const a=s.aA?gAct(s.aC,s.aA):null; return `<tr>
+                    <td style="color:${C.mut}">${i+1}</td>
+                    <td style="font-weight:600">${s.name}</td>
+                    <td style="color:${C.mut}">${a?a.name:"—"}</td>
                     <td>${chip(s.pU==="admin"?"Admin":s.pU?s.pU+" pref":s.rsn||"—",rc(s.pU||""))}</td>
-                    <td style="color:#8B949E;font-size:11px">${s.by||"—"}</td>
-                    ${isAdmin?`<td><button onclick="DS('${s._id}')" style="background:none;border:none;color:#F85149;font-size:15px;line-height:1;cursor:pointer">✕</button></td>`:"<td></td>"}
+                    <td style="color:${C.mut};font-size:11px">${s.by||"—"}</td>
                   </tr>`; }).join("")}</tbody>
                 </table></div>
               </div>`;
@@ -967,22 +848,11 @@ function buildUI(){
   };
   const clubsToShow=clubViewSelected?[clubViewSelected]:(clubViewSeg==="ALL"?ALL:CLUBS[clubViewSeg]);
   const clubViewTab=`
-  ${!teacher.by?`<div class="card" style="border:2px solid ${C.amb};padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-    <span style="font-size:20px">✏️</span>
-    <div style="flex:1;min-width:200px">
-      <div style="font-weight:700;font-size:13px;color:${C.amb};margin-bottom:4px">Enter your name to enable editing</div>
-      <div style="font-size:12px;color:${C.mut}">You can browse all entries, but to edit names or sections you must identify yourself.</div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <input id="cvTeacherInput2" placeholder="YOUR NAME" style="width:180px;text-transform:uppercase;letter-spacing:.5px" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')STBY(document.getElementById('cvTeacherInput2').value)"/>
-      <button class="btn" onclick="STBY(document.getElementById('cvTeacherInput2').value)" style="background:${C.amb}">Set Name</button>
-    </div>
-  </div>`:`<div style="font-size:12px;color:${C.grn};margin-bottom:10px;padding:6px 12px;background:${C.grn}11;border-radius:6px;border:1px solid ${C.grn}33">✓ Editing as <b>${teacher.by}</b> — you can edit and delete your own entries below</div>`}
   <div class="card" style="padding:12px 16px;margin-bottom:14px">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:4px">
       <div>
-        <div style="font-weight:700;font-size:15px;margin-bottom:2px">🏅 Club View — Grade & Section Breakdown</div>
-        <div style="font-size:12px;color:${C.mut}">See each club's members grouped by grade and section · ✎ edit name or section · 🗑 remove your own duplicates · download per-club Excel</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:2px">🏫 Club View — Grade & Section Breakdown</div>
+        <div style="font-size:12px;color:${C.mut}">See each club's members grouped by grade and section · download individual club Excel</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <select style="width:130px" onchange="clubViewSeg=this.value;clubViewClub='ALL';render()">
@@ -994,7 +864,6 @@ function buildUI(){
         </select>
       </div>
     </div>
-    ${dupIds.size>0?`<div style="background:${C.red}15;border:1px solid ${C.red}44;border-radius:6px;padding:9px 14px;margin-top:10px;font-size:12px;color:${C.red}">⚠ <b>${dupIds.size} duplicate entries</b> detected in your submissions — highlighted in red. Use the 🗑 button to remove the extra copy.</div>`:""}
   </div>
   ${clubsToShow.filter(cl=>students.some(s=>s.aC===cl.id)||clubViewSelected).map(cl=>renderClubPanel(cl)).join("")}
   `;
@@ -1013,50 +882,16 @@ function buildUI(){
   return `${toastHTML}${hdr}<div style="max-width:1320px;margin:0 auto;padding:22px 18px">${tabs[tab]||""}</div>`;
 }
 
-// ── CLASS VIEW XLSX EXPORTS ───────────────────────────────────────────────────
-function exportClassViewCSV(grFilter,secFilter){
-  const filtered=sortStudents(students.filter(s=>{
-    if(grFilter&&grFilter!=="ALL"&&s.grade!==grFilter) return false;
-    if(secFilter&&secFilter!=="ALL"&&(s.section||"—")!==secFilter) return false;
-    return true;
-  }));
-  const wb = XLSX.utils.book_new();
-  const rowData = filtered.map((s,i)=>{
-    const cl=gClub(s.aC), ac2=s.aA?gAct(s.aC,s.aA):null;
-    return {"#":i+1,"Student Name":s.name,"Grade":s.grade,"Section":s.section||"",
-            "Club Allocated":cl?cl.id+": "+cl.name:"UNALLOCATED",
-            "Sub-Club / Activity":ac2?ac2.name:"—",
-            "Status":s.pU==="admin"?"Admin Alloc":s.pU?s.pU+" preference":s.rsn||"",
-            "Entered By":s.by||""};
-  });
-  const ws = XLSX.utils.json_to_sheet([]);
-  const title = grFilter&&grFilter!=="ALL"
-    ?(secFilter&&secFilter!=="ALL"?`Grade ${grFilter} · Section ${secFilter}`:`Grade ${grFilter} · All Sections`)
-    :"All Classes";
-  XLSX.utils.sheet_add_aoa(ws,[
-    [`GD Goenka Dakshineswar — Class View: ${title} — 2026-27`],
-    [`Downloaded: ${new Date().toLocaleString()} | ${filtered.length} students`],[]
-  ], {origin:"A1"});
-  XLSX.utils.sheet_add_json(ws, rowData.length?rowData:[{"Note":"No students match this filter"}], {origin:"A4"});
-  ws['!cols'] = [{wch:4},{wch:28},{wch:10},{wch:10},{wch:30},{wch:24},{wch:20},{wch:20}];
-  XLSX.utils.book_append_sheet(wb, ws, title.substring(0,28));
-  const suffix = grFilter&&grFilter!=="ALL"
-    ?(secFilter&&secFilter!=="ALL"?`_Grade${grFilter}_Sec${secFilter}`:`_Grade${grFilter}`)
-    :"_AllClasses";
-  xlsxDL(wb, `GDGoenka_ClassView${suffix}.xlsx`);
-  toast(`✓ Class View — ${title} Excel downloaded`);
-}
-
 // ── GLOBALS ───────────────────────────────────────────────────────────────────
 window.ST   = v=>{ tab=v; render(); };
 window.SF   = (k,v)=>{ form[k]=v; };
 window.SFR  = (k,v)=>{ form[k]=v; render(); };
 window.SP   = (pk,ak,v)=>{ form={...form,[pk]:v,[ak]:""}; render(); };
-window.Tby  = v=>{ teacher.by=v; localStorage.setItem("gdg_teacher_by",v); };
-window.TbyR = v=>{ teacher.by=v; localStorage.setItem("gdg_teacher_by",v); render(); };
-window.Tsc  = v=>{ teacher.sec=v; localStorage.setItem("gdg_teacher_sec",v); };
-window.TscR = v=>{ teacher.sec=v; localStorage.setItem("gdg_teacher_sec",v); render(); };
-window.Tgr  = v=>{ teacher.grade=v; localStorage.setItem("gdg_teacher_gr",v); form={name:form.name,p1:"",a1:"",p2:"",a2:"",p3:"",a3:""}; render(); };
+window.Tby  = v=>{ teacher.by=v; };
+window.TbyR = v=>{ teacher.by=v; render(); };
+window.Tsc  = v=>{ teacher.sec=v; };
+window.TscR = v=>{ teacher.sec=v; render(); };
+window.Tgr  = v=>{ teacher.grade=v; form={name:form.name,p1:"",a1:"",p2:"",a2:"",p3:"",a3:""}; render(); };
 window.AS   = addStudent;
 window.DS   = delStudent;
 window.DOE  = delOwnEntry;
@@ -1066,9 +901,6 @@ window.TS   = toggleSeg;
 window.US   = updateSection;
 window.UN   = updateName;
 window.EXCV = exportClubViewXLSX;
-window.EXCA = exportActivityXLSX;
-window.DLCV  = ()=>exportClassViewCSV(cvGr,cvSec);
-window.DLCVSEC = (gr,sec)=>exportClassViewCSV(gr,sec);
 window.EM   = exportMaster;
 window.EC   = exportClubWise;
 window.EG   = exportGradeWise;
@@ -1082,75 +914,6 @@ window.DLT  = ()=>dlCSV("Template_GDGoenka.csv",[
   `"Priya Roy","VII","B","B7","B7-Western","B6","B6-Yoga","B2","B2-Debate","Mr. Sen"`
 ]);
 window.render = render;
-
-// ── EDIT via event delegation — attached after every render() ─────────────────
-// All edit state lives in module-scope vars (cvNameEdit, cvEdit, etc.)
-// Buttons use data-action / data-id — no inline JS touching module vars at all.
-window._cv_nv = "";   // live name input value
-window._cv_sv = "";   // live section input value
-
-window._cv_save_name = function(id){
-  const val = (window._cv_nv||"").trim().toUpperCase();
-  if(!id||!val) return;
-  setDoc(doc(db,"students",id),{name:val},{merge:true})
-    .then(()=>{ cvNameEdit=null; cvNameVal=""; toast(`✓ Name → "${val}"`,C.grn); })
-    .catch(e=>toast("Update failed: "+e.message,C.red));
-};
-window._cv_save_sec = function(id){
-  const val = (window._cv_sv||"").trim().toUpperCase();
-  if(!id) return;
-  setDoc(doc(db,"students",id),{section:val},{merge:true})
-    .then(()=>{ cvEdit=null; cvEditVal=""; toast(`✓ Section → "${val||"(blank)"}"`); })
-    .catch(e=>toast("Update failed: "+e.message,C.red));
-};
-window._cv_cancel = function(){
-  cvNameEdit=null; cvNameVal="";
-  cvEdit=null; cvEditVal="";
-  render();
-};
-
-window.STBY = function(v){
-  const name=(v||"").trim().toUpperCase();
-  if(!name) return;
-  teacher.by=name;
-  localStorage.setItem("gdg_teacher_by",name);
-  render();
-};
-
-// Attach delegated click handler once after each render
-const _origRender = render;
-window.render = function(){
-  _origRender();
-  const root = document.getElementById("root");
-  if(!root) return;
-  root.onclick = function(e){
-    const btn = e.target.closest("[data-action]");
-    if(!btn) return;
-    const action = btn.dataset.action;
-    const id     = btn.dataset.id;
-    if(action==="editname"){
-      const s = students.find(x=>x._id===id);
-      cvNameEdit=id; cvNameVal=s?s.name:"";
-      window._cv_nv = cvNameVal;
-      render();
-      setTimeout(()=>{ const el=document.getElementById("nameInp_"+id); if(el){el.focus();el.select();} },30);
-    } else if(action==="savename"){
-      window._cv_save_name(id);
-    } else if(action==="cancelname"){
-      window._cv_cancel();
-    } else if(action==="editsec"){
-      const s = students.find(x=>x._id===id);
-      cvEdit=id; cvEditVal=s?s.section||"":"";
-      window._cv_sv = cvEditVal;
-      render();
-      setTimeout(()=>{ const el=document.getElementById("secInp_"+id); if(el){el.focus();el.select();} },30);
-    } else if(action==="savesec"){
-      window._cv_save_sec(id);
-    } else if(action==="cancelsec"){
-      window._cv_cancel();
-    }
-  };
-};
 // expose state so inline onchange handlers work
 Object.defineProperties(window,{
   cvGr:{get:()=>cvGr,set:v=>{cvGr=v;}},
