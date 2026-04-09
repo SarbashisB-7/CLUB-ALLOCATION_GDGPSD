@@ -164,7 +164,12 @@ function allocate(s,cc,ac){
 let students  = [];
 let segAccess = {A:false,B:false,C:false};
 let tab="entry", toasts=[];
-let teacher={by:"",grade:"",sec:""};
+// Restore teacher identity from localStorage so edits work after refresh
+let teacher={
+  by:  localStorage.getItem("gdg_teacher_by")  ||"",
+  grade:localStorage.getItem("gdg_teacher_gr") ||"",
+  sec: localStorage.getItem("gdg_teacher_sec") ||""
+};
 let form={name:"",p1:"",a1:"",p2:"",a2:"",p3:"",a3:""};
 let csvTxt="",csvErr="";
 let fSeg="ALL",fSt="ALL",fQ="",fGr="ALL";
@@ -798,6 +803,17 @@ function buildUI(){
     mine.forEach(s=>{ const copies=mine.filter(x=>x.name.trim().toLowerCase()===s.name.trim().toLowerCase()&&x.grade===s.grade); if(copies.length>1) copies.forEach(x=>dupIds.add(x._id)); });
   }
   const classViewTab=`
+  ${!teacher.by?`<div class="card" style="border:2px solid ${C.amb};padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <span style="font-size:20px">✏️</span>
+    <div style="flex:1;min-width:200px">
+      <div style="font-weight:700;font-size:13px;color:${C.amb};margin-bottom:4px">Enter your name to enable editing</div>
+      <div style="font-size:12px;color:${C.mut}">You can browse all entries, but to edit names or sections you must identify yourself.</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input id="cvTeacherInput" placeholder="YOUR NAME" style="width:180px;text-transform:uppercase;letter-spacing:.5px" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')STBY(document.getElementById('cvTeacherInput').value)"/>
+      <button class="btn" onclick="STBY(document.getElementById('cvTeacherInput').value)" style="background:${C.amb}">Set Name</button>
+    </div>
+  </div>`:""}
   <div class="card" style="padding:12px 16px;margin-bottom:14px">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:4px">
       <div>
@@ -816,6 +832,7 @@ function buildUI(){
       </div>
     </div>
     ${dupIds.size>0?`<div style="background:${C.red}15;border:1px solid ${C.red}44;border-radius:6px;padding:9px 14px;margin-top:10px;font-size:12px;color:${C.red}">⚠ <b>${dupIds.size} duplicate entries</b> found in your submissions — highlighted in red below. Delete the extra copy using the 🗑 button.</div>`:""}
+    ${teacher.by?`<div style="margin-top:8px;font-size:11px;color:${C.grn}">✓ Editing as <b>${teacher.by}</b> — ✎ buttons visible on your own entries</div>`:""}
   </div>
   ${cvFiltered.length===0
     ?`<div class="card" style="text-align:center;padding:50px;color:${C.mut}">No students match this filter</div>`
@@ -952,6 +969,17 @@ function buildUI(){
   };
   const clubsToShow=clubViewSelected?[clubViewSelected]:(clubViewSeg==="ALL"?ALL:CLUBS[clubViewSeg]);
   const clubViewTab=`
+  ${!teacher.by?`<div class="card" style="border:2px solid ${C.amb};padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <span style="font-size:20px">✏️</span>
+    <div style="flex:1;min-width:200px">
+      <div style="font-weight:700;font-size:13px;color:${C.amb};margin-bottom:4px">Enter your name to enable editing</div>
+      <div style="font-size:12px;color:${C.mut}">You can browse all entries, but to edit names or sections you must identify yourself.</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input id="cvTeacherInput2" placeholder="YOUR NAME" style="width:180px;text-transform:uppercase;letter-spacing:.5px" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')STBY(document.getElementById('cvTeacherInput2').value)"/>
+      <button class="btn" onclick="STBY(document.getElementById('cvTeacherInput2').value)" style="background:${C.amb}">Set Name</button>
+    </div>
+  </div>`:`<div style="font-size:12px;color:${C.grn};margin-bottom:10px;padding:6px 12px;background:${C.grn}11;border-radius:6px;border:1px solid ${C.grn}33">✓ Editing as <b>${teacher.by}</b> — you can edit and delete your own entries below</div>`}
   <div class="card" style="padding:12px 16px;margin-bottom:14px">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:4px">
       <div>
@@ -1026,11 +1054,11 @@ window.ST   = v=>{ tab=v; render(); };
 window.SF   = (k,v)=>{ form[k]=v; };
 window.SFR  = (k,v)=>{ form[k]=v; render(); };
 window.SP   = (pk,ak,v)=>{ form={...form,[pk]:v,[ak]:""}; render(); };
-window.Tby  = v=>{ teacher.by=v; };
-window.TbyR = v=>{ teacher.by=v; render(); };
-window.Tsc  = v=>{ teacher.sec=v; };
-window.TscR = v=>{ teacher.sec=v; render(); };
-window.Tgr  = v=>{ teacher.grade=v; form={name:form.name,p1:"",a1:"",p2:"",a2:"",p3:"",a3:""}; render(); };
+window.Tby  = v=>{ teacher.by=v; localStorage.setItem("gdg_teacher_by",v); };
+window.TbyR = v=>{ teacher.by=v; localStorage.setItem("gdg_teacher_by",v); render(); };
+window.Tsc  = v=>{ teacher.sec=v; localStorage.setItem("gdg_teacher_sec",v); };
+window.TscR = v=>{ teacher.sec=v; localStorage.setItem("gdg_teacher_sec",v); render(); };
+window.Tgr  = v=>{ teacher.grade=v; localStorage.setItem("gdg_teacher_gr",v); form={name:form.name,p1:"",a1:"",p2:"",a2:"",p3:"",a3:""}; render(); };
 window.AS   = addStudent;
 window.DS   = delStudent;
 window.DOE  = delOwnEntry;
@@ -1089,6 +1117,13 @@ window.UNV = function(v){           // Update name value (from oninput)
 };
 window.USV = function(v){           // Update section value (from oninput)
   cvEditVal=v;
+};
+window.STBY = function(v){          // Set Teacher By — from Class/Club View prompt
+  const name=v.trim().toUpperCase();
+  if(!name) return;
+  teacher.by=name;
+  localStorage.setItem("gdg_teacher_by",name);
+  render();
 };
 // expose state so inline onchange handlers work
 Object.defineProperties(window,{
