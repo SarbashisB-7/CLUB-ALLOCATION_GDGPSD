@@ -438,7 +438,47 @@ function exportUnalloc(){
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
-function render(){ document.getElementById("root").innerHTML=buildUI(); }
+function render(){
+  document.getElementById("root").innerHTML=buildUI();
+  // Re-attach delegated click handler on every render (covers Firebase-triggered re-renders too)
+  const root = document.getElementById("root");
+  if(!root) return;
+  root.onclick = function(e){
+    const btn = e.target.closest("[data-action]");
+    if(!btn) return;
+    const action = btn.dataset.action;
+    const id     = btn.dataset.id;
+    if(action==="editname"){
+      const s = students.find(x=>x._id===id);
+      cvNameEdit=id; cvNameVal=s?s.name:"";
+      window._cv_nv = cvNameVal;
+      render();
+      setTimeout(()=>{ const el=document.getElementById("nameInp_"+id); if(el){el.focus();el.select();} },30);
+    } else if(action==="savename"){
+      const val=(window._cv_nv||"").trim().toUpperCase();
+      if(!id||!val) return;
+      setDoc(doc(db,"students",id),{name:val},{merge:true})
+        .then(()=>{ cvNameEdit=null; cvNameVal=""; toast(`✓ Name → "${val}"`,C.grn); })
+        .catch(err=>toast("Update failed: "+err.message,C.red));
+    } else if(action==="cancelname"){
+      cvNameEdit=null; cvNameVal=""; cvEdit=null; cvEditVal=""; render();
+    } else if(action==="editsec"){
+      const s = students.find(x=>x._id===id);
+      cvEdit=id; cvEditVal=s?s.section||"":"";
+      window._cv_sv = cvEditVal;
+      render();
+      setTimeout(()=>{ const el=document.getElementById("secInp_"+id); if(el){el.focus();el.select();} },30);
+    } else if(action==="savesec"){
+      const val=(window._cv_sv||"").trim().toUpperCase();
+      if(!id) return;
+      setDoc(doc(db,"students",id),{section:val},{merge:true})
+        .then(()=>{ cvEdit=null; cvEditVal=""; toast(`✓ Section → "${val||"(blank)"}"`); })
+        .catch(err=>toast("Update failed: "+err.message,C.red));
+    } else if(action==="cancelsec"){
+      cvNameEdit=null; cvNameVal=""; cvEdit=null; cvEditVal=""; render();
+    }
+  };
+}
 
 function capBar(n,cap,lbl,sm){
   const p=Math.min(100,Math.round(n/cap*100)), col=p>=100?C.red:p>=75?C.amb:C.grn;
@@ -1082,74 +1122,14 @@ window.DLT  = ()=>dlCSV("Template_GDGoenka.csv",[
   `"Priya Roy","VII","B","B7","B7-Western","B6","B6-Yoga","B2","B2-Debate","Mr. Sen"`
 ]);
 window.render = render;
-
-// ── EDIT via event delegation — attached after every render() ─────────────────
-// All edit state lives in module-scope vars (cvNameEdit, cvEdit, etc.)
-// Buttons use data-action / data-id — no inline JS touching module vars at all.
-window._cv_nv = "";   // live name input value
-window._cv_sv = "";   // live section input value
-
-window._cv_save_name = function(id){
-  const val = (window._cv_nv||"").trim().toUpperCase();
-  if(!id||!val) return;
-  setDoc(doc(db,"students",id),{name:val},{merge:true})
-    .then(()=>{ cvNameEdit=null; cvNameVal=""; toast(`✓ Name → "${val}"`,C.grn); })
-    .catch(e=>toast("Update failed: "+e.message,C.red));
-};
-window._cv_save_sec = function(id){
-  const val = (window._cv_sv||"").trim().toUpperCase();
-  if(!id) return;
-  setDoc(doc(db,"students",id),{section:val},{merge:true})
-    .then(()=>{ cvEdit=null; cvEditVal=""; toast(`✓ Section → "${val||"(blank)"}"`); })
-    .catch(e=>toast("Update failed: "+e.message,C.red));
-};
-window._cv_cancel = function(){
-  cvNameEdit=null; cvNameVal="";
-  cvEdit=null; cvEditVal="";
-  render();
-};
-
+window._cv_nv = "";
+window._cv_sv = "";
 window.STBY = function(v){
   const name=(v||"").trim().toUpperCase();
   if(!name) return;
   teacher.by=name;
   localStorage.setItem("gdg_teacher_by",name);
   render();
-};
-
-// Attach delegated click handler once after each render
-const _origRender = render;
-window.render = function(){
-  _origRender();
-  const root = document.getElementById("root");
-  if(!root) return;
-  root.onclick = function(e){
-    const btn = e.target.closest("[data-action]");
-    if(!btn) return;
-    const action = btn.dataset.action;
-    const id     = btn.dataset.id;
-    if(action==="editname"){
-      const s = students.find(x=>x._id===id);
-      cvNameEdit=id; cvNameVal=s?s.name:"";
-      window._cv_nv = cvNameVal;
-      render();
-      setTimeout(()=>{ const el=document.getElementById("nameInp_"+id); if(el){el.focus();el.select();} },30);
-    } else if(action==="savename"){
-      window._cv_save_name(id);
-    } else if(action==="cancelname"){
-      window._cv_cancel();
-    } else if(action==="editsec"){
-      const s = students.find(x=>x._id===id);
-      cvEdit=id; cvEditVal=s?s.section||"":"";
-      window._cv_sv = cvEditVal;
-      render();
-      setTimeout(()=>{ const el=document.getElementById("secInp_"+id); if(el){el.focus();el.select();} },30);
-    } else if(action==="savesec"){
-      window._cv_save_sec(id);
-    } else if(action==="cancelsec"){
-      window._cv_cancel();
-    }
-  };
 };
 // expose state so inline onchange handlers work
 Object.defineProperties(window,{
