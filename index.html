@@ -173,7 +173,7 @@ let teacher={
 let form={name:"",p1:"",a1:"",p2:"",a2:"",p3:"",a3:""};
 let csvTxt="",csvErr="";
 let fSeg="ALL",fSt="ALL",fQ="",fGr="ALL";
-let cvGr="ALL",cvSec="ALL",cvEdit=null,cvEditVal="",cvNameEdit=null,cvNameVal="";
+let cvGr="ALL",cvSec="ALL",cvEdit=null,cvEditVal="",cvNameEdit=null,cvNameVal="",cvGrEdit=null,cvGrVal="";
 let clubViewSeg="ALL",clubViewClub="ALL";
 
 // ── LISTENERS ─────────────────────────────────────────────────────────────────
@@ -388,6 +388,22 @@ async function updateSection(fid, newSec){
   } catch(e){ toast("Update failed: "+e.message, C.red); }
 }
 
+// ── UPDATE GRADE ─────────────────────────────────────────────────────────────
+async function updateGrade(fid, newGrade){
+  if(!fid||!newGrade) return;
+  // Re-run allocation when grade changes (segment may change)
+  const s = students.find(x=>x._id===fid);
+  if(!s) return;
+  const updated = {...s, grade: newGrade};
+  const {cc,ac} = counts(students.filter(x=>x._id!==fid)); // exclude self from counts
+  const al = allocate(updated, cc, ac);
+  try{
+    await setDoc(doc(db,"students",fid), {grade: newGrade, ...al}, {merge:true});
+    cvGrEdit=null; cvGrVal="";
+    toast(`Grade updated → "${newGrade}" · Re-allocated to ${gClub(al.aC)?.name||"unallocated"}`, C.grn);
+  } catch(e){ toast("Update failed: "+e.message, C.red); }
+}
+
 // ── SORT HELPER ───────────────────────────────────────────────────────────────
 function sortStudents(arr){
   return [...arr].sort((a,b)=>{
@@ -461,7 +477,7 @@ function render(){
         .then(()=>{ cvNameEdit=null; cvNameVal=""; toast(`✓ Name → "${val}"`,C.grn); })
         .catch(err=>toast("Update failed: "+err.message,C.red));
     } else if(action==="cancelname"){
-      cvNameEdit=null; cvNameVal=""; cvEdit=null; cvEditVal=""; render();
+      cvNameEdit=null; cvNameVal=""; cvEdit=null; cvEditVal=""; cvGrEdit=null; cvGrVal=""; render();
     } else if(action==="editsec"){
       const s = students.find(x=>x._id===id);
       cvEdit=id; cvEditVal=s?s.section||"":"";
@@ -475,7 +491,19 @@ function render(){
         .then(()=>{ cvEdit=null; cvEditVal=""; toast(`✓ Section → "${val||"(blank)"}"`); })
         .catch(err=>toast("Update failed: "+err.message,C.red));
     } else if(action==="cancelsec"){
-      cvNameEdit=null; cvNameVal=""; cvEdit=null; cvEditVal=""; render();
+      cvNameEdit=null; cvNameVal=""; cvEdit=null; cvEditVal=""; cvGrEdit=null; cvGrVal=""; render();
+    } else if(action==="editgrade"){
+      const s = students.find(x=>x._id===id);
+      cvGrEdit=id; cvGrVal=s?s.grade:"";
+      window._cv_gv = cvGrVal;
+      render();
+      setTimeout(()=>{ const el=document.getElementById("grInp_"+id); if(el){el.focus();} },30);
+    } else if(action==="savegrade"){
+      const val=(window._cv_gv||"").trim();
+      if(!id||!val) return;
+      updateGrade(id, val);
+    } else if(action==="cancelgrade"){
+      cvGrEdit=null; cvGrVal=""; render();
     }
   };
 }
@@ -890,7 +918,7 @@ function buildUI(){
           </div>
           <div class="ov"><table>
             <thead><tr>
-              ${["#","Name","Section","✦ Club Allocated","✦ Activity","Status","Entered By",""].map(h=>`<th>${h}</th>`).join("")}
+              ${["#","Name","Grade","Section","✦ Club Allocated","✦ Activity","Status","Entered By",""].map(h=>`<th>${h}</th>`).join("")}
             </tr></thead>
             <tbody>
               ${mem.map((s,i)=>{
@@ -910,6 +938,20 @@ function buildUI(){
                       :`<span style="display:inline-flex;align-items:center;gap:6px">
                           <span style="font-weight:600">${s.name}</span>
                           ${canEdit?`<button data-action="editname" data-id="${s._id}" style="background:none;border:1px solid #30363D;border-radius:4px;padding:2px 6px;font-size:11px;color:#8B949E;cursor:pointer" title="Edit name">✎</button>`:""}
+                        </span>`}
+                  </td>
+                  <td>
+                    ${(cvGrEdit===s._id)
+                      ?`<div style="display:flex;gap:5px;align-items:center">
+                          <select id="grInp_${s._id}" onchange="window._cv_gv=this.value" style="width:100px;padding:4px 6px;font-size:12px">
+                            ${GRADES.map(g=>`<option value="${g}"${s.grade===g?" selected":""}>${g}</option>`).join("")}
+                          </select>
+                          <button data-action="savegrade" data-id="${s._id}" class="btn" style="background:#3FB950;padding:4px 10px;font-size:11px">✓</button>
+                          <button data-action="cancelgrade" class="btnO" style="padding:4px 8px;font-size:11px">✕</button>
+                        </div>`
+                      :`<span style="display:inline-flex;align-items:center;gap:5px">
+                          ${chip(s.grade,C.acc)}
+                          ${canEdit?`<button data-action="editgrade" data-id="${s._id}" style="background:none;border:1px solid #30363D;border-radius:4px;padding:2px 6px;font-size:11px;color:#8B949E;cursor:pointer" title="Edit grade">✎</button>`:""}
                         </span>`}
                   </td>
                   <td>
@@ -977,7 +1019,7 @@ function buildUI(){
               return `<div style="margin-bottom:10px">
                 <div style="font-size:11px;color:${sCol};font-weight:700;margin-bottom:6px;padding-left:8px;border-left:2px solid ${sCol}">Section ${sec} · ${sm.length} students</div>
                 <div class="ov"><table>
-                  <thead><tr>${["#","Name","Section","Activity","Status","Entered By",""].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
+                  <thead><tr>${["#","Name","Grade","Section","Activity","Status","Entered By",""].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
                   <tbody>${sm.map((s,i)=>{ const a=s.aA?gAct(s.aC,s.aA):null;
                     const isEditingClubName=(cvNameEdit===s._id);
                     const isEditingClubSec=(cvEdit===s._id);
@@ -987,6 +1029,10 @@ function buildUI(){
                     <td>${isEditingClubName
                       ?`<div style="display:flex;gap:5px;align-items:center"><input id="nameInp_${s._id}" value="${(cvNameVal||s.name).replace(/"/g,'&quot;').replace(/'/g,'&#39;')}" oninput="window._cv_nv=this.value" onkeydown="if(event.key==='Enter'){window._cv_save_name('${s._id}');}if(event.key==='Escape'){window._cv_cancel();}" style="width:130px;padding:4px 7px;font-size:12px;text-transform:uppercase" autofocus/><button data-action="savename" data-id="${s._id}" class="btn" style="background:#3FB950;padding:4px 8px;font-size:11px">✓</button><button data-action="cancelname" class="btnO" style="padding:4px 6px;font-size:11px">✕</button></div>`
                       :`<span style="display:inline-flex;align-items:center;gap:5px"><span style="font-weight:600">${s.name}</span>${canEdit?`<button data-action="editname" data-id="${s._id}" style="background:none;border:1px solid #30363D;border-radius:4px;padding:2px 5px;font-size:11px;color:#8B949E;cursor:pointer" title="Edit name">✎</button>`:""}</span>`}
+                    </td>
+                    <td>${(cvGrEdit===s._id)
+                      ?`<div style="display:flex;gap:5px;align-items:center"><select id="grInp_${s._id}" onchange="window._cv_gv=this.value" style="width:95px;padding:4px 5px;font-size:12px">${GRADES.map(g=>`<option value="${g}"${s.grade===g?" selected":""}>${g}</option>`).join("")}</select><button data-action="savegrade" data-id="${s._id}" class="btn" style="background:#3FB950;padding:4px 8px;font-size:11px">✓</button><button data-action="cancelgrade" class="btnO" style="padding:4px 6px;font-size:11px">✕</button></div>`
+                      :`<span style="display:inline-flex;align-items:center;gap:4px">${chip(s.grade,C.acc)}${canEdit?`<button data-action="editgrade" data-id="${s._id}" style="background:none;border:1px solid #30363D;border-radius:4px;padding:2px 5px;font-size:11px;color:#8B949E;cursor:pointer" title="Edit grade">✎</button>`:""}</span>`}
                     </td>
                     <td>${isEditingClubSec
                       ?`<div style="display:flex;gap:5px;align-items:center"><input id="secInp_${s._id}" value="${(cvEditVal||s.section||"").replace(/"/g,'&quot;')}" oninput="window._cv_sv=this.value" onkeydown="if(event.key==='Enter'){window._cv_save_sec('${s._id}');}if(event.key==='Escape'){window._cv_cancel();}" maxlength="3" style="width:50px;padding:4px 6px;font-size:12px" placeholder="A" autofocus/><button data-action="savesec" data-id="${s._id}" class="btn" style="background:#3FB950;padding:4px 8px;font-size:11px">✓</button><button data-action="cancelsec" class="btnO" style="padding:4px 6px;font-size:11px">✕</button></div>`
@@ -1006,6 +1052,26 @@ function buildUI(){
     </div>`;
   };
   const clubsToShow=clubViewSelected?[clubViewSelected]:(clubViewSeg==="ALL"?ALL:CLUBS[clubViewSeg]);
+  // Unallocated students panel for club view
+  const unallocCV = sortStudents(students.filter(s=>!s.aC && (clubViewSeg==="ALL"||seg(s.grade)===clubViewSeg)));
+  const unallocPanel = (clubViewClub==="ALL"&&unallocCV.length>0)?`
+    <div class="card" style="margin-bottom:14px;padding:0;overflow:hidden;border:1px solid ${C.red}44">
+      <div style="background:${C.red}18;border-bottom:1px solid ${C.red}33;padding:12px 18px">
+        <div style="font-weight:700;font-size:14px;color:${C.red}">⚠ Unallocated Students (${unallocCV.length})</div>
+        <div style="font-size:11px;color:${C.mut};margin-top:2px">These students are in the database but have not been placed in any club — they need manual review.</div>
+      </div>
+      <div style="padding:14px 18px"><div class="ov"><table>
+        <thead><tr>${["#","Name","Grade","Section","Reason","Entered By"].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
+        <tbody>${unallocCV.map((s,i)=>`<tr style="background:${C.red}08">
+          <td style="color:${C.mut}">${i+1}</td>
+          <td style="font-weight:600;color:${C.red}">${s.name}</td>
+          <td>${chip(s.grade,C.red)}</td>
+          <td><span class="chip" style="background:${C.red}22;color:${C.red};border:1px solid ${C.red}44">${s.section||"—"}</span></td>
+          <td style="color:${C.mut};font-size:11px">${s.rsn||"No capacity / invalid grade"}</td>
+          <td style="color:${C.mut};font-size:11px">${s.by||"—"}</td>
+        </tr>`).join("")}</tbody>
+      </table></div></div>
+    </div>`:"";
   const clubViewTab=`
   ${!teacher.by?`<div class="card" style="border:2px solid ${C.amb};padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
     <span style="font-size:20px">✏️</span>
@@ -1037,6 +1103,7 @@ function buildUI(){
     ${dupIds.size>0?`<div style="background:${C.red}15;border:1px solid ${C.red}44;border-radius:6px;padding:9px 14px;margin-top:10px;font-size:12px;color:${C.red}">⚠ <b>${dupIds.size} duplicate entries</b> detected in your submissions — highlighted in red. Use the 🗑 button to remove the extra copy.</div>`:""}
   </div>
   ${clubsToShow.filter(cl=>students.some(s=>s.aC===cl.id)||clubViewSelected).map(cl=>renderClubPanel(cl)).join("")}
+  ${unallocPanel}
   `;
 
   const tabs={
@@ -1105,6 +1172,7 @@ window.IC   = importCSV;
 window.TS   = toggleSeg;
 window.US   = updateSection;
 window.UN   = updateName;
+window.UG   = updateGrade;
 window.EXCV = exportClubViewXLSX;
 window.EXCA = exportActivityXLSX;
 window.DLCV  = ()=>exportClassViewCSV(cvGr,cvSec);
@@ -1124,6 +1192,7 @@ window.DLT  = ()=>dlCSV("Template_GDGoenka.csv",[
 window.render = render;
 window._cv_nv = "";
 window._cv_sv = "";
+window._cv_gv = "";
 window.STBY = function(v){
   const name=(v||"").trim().toUpperCase();
   if(!name) return;
@@ -1139,6 +1208,8 @@ Object.defineProperties(window,{
   cvEditVal:{get:()=>cvEditVal,set:v=>{cvEditVal=v;}},
   cvNameEdit:{get:()=>cvNameEdit,set:v=>{cvNameEdit=v;}},
   cvNameVal:{get:()=>cvNameVal,set:v=>{cvNameVal=v;}},
+  cvGrEdit:{get:()=>cvGrEdit,set:v=>{cvGrEdit=v;}},
+  cvGrVal:{get:()=>cvGrVal,set:v=>{cvGrVal=v;}},
   clubViewSeg:{get:()=>clubViewSeg,set:v=>{clubViewSeg=v;}},
   clubViewClub:{get:()=>clubViewClub,set:v=>{clubViewClub=v;}},
 });
