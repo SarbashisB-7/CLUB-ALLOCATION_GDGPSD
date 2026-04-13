@@ -175,8 +175,16 @@ let csvTxt="",csvErr="";
 let fSeg="ALL",fSt="ALL",fQ="",fGr="ALL";
 let cvGr="ALL",cvSec="ALL",cvEdit=null,cvEditVal="",cvNameEdit=null,cvNameVal="",cvGrEdit=null,cvGrVal="";
 let clubViewSeg="ALL",clubViewClub="ALL";
-// Admin reassign state
-let adminReassign={id:null,clubVal:"",actVal:"",noteVal:"",notePublic:false,showConfirm:false,overCapacity:false};
+// Admin full-edit state
+let adminEdit={
+  id:null,           // student _id being edited
+  name:"",grade:"",section:"",
+  p1:"",a1:"",p2:"",a2:"",p3:"",a3:"",
+  overrideClub:false,// true = admin manually picks final club
+  clubVal:"",actVal:"",
+  noteVal:"",        // required public note
+  showConfirm:false, // over-capacity confirm step
+};
 
 // ── LISTENERS ─────────────────────────────────────────────────────────────────
 onSnapshot(query(COL,orderBy("at","asc")),snap=>{
@@ -262,38 +270,69 @@ async function updateName(fid, newName){
   } catch(e){ toast("Update failed: "+e.message, C.red); }
 }
 
-// ── ADMIN REASSIGN CLUB ───────────────────────────────────────────────────────
-async function adminReassignClub(fid, newClubId, newActId, note, forceOverCap){
+// ── ADMIN FULL EDIT ───────────────────────────────────────────────────────────
+function adminOpenEdit(fid){
   if(!isAdmin||!fid) return;
-  const cl=gClub(newClubId); if(!cl) return;
-  const {cc,ac}=counts(students.filter(s=>s._id!==fid)); // exclude this student from counts
-  // Capacity check
-  let overCap=false;
-  if(cl.acts){
-    if(!newActId){ toast("Please select an activity for this club",C.amb); return; }
-    const act=cl.acts.find(a=>a.id===newActId);
-    if(act&&(ac[act.id]||0)>=act.cap) overCap=true;
+  const s=students.find(x=>x._id===fid); if(!s) return;
+  adminEdit={
+    id:fid,
+    name:s.name||"",grade:s.grade||"",section:s.section||"",
+    p1:s.p1||"",a1:s.a1||"",p2:s.p2||"",a2:s.a2||"",p3:s.p3||"",a3:s.a3||"",
+    overrideClub:false,clubVal:s.aC||"",actVal:s.aA||"",
+    noteVal:"",showConfirm:false,
+  };
+  render();
+}
+function adminCloseEdit(){ adminEdit={id:null,name:"",grade:"",section:"",p1:"",a1:"",p2:"",a2:"",p3:"",a3:"",overrideClub:false,clubVal:"",actVal:"",noteVal:"",showConfirm:false}; render(); }
+
+async function adminSaveEdit(forceOverCap){
+  if(!isAdmin||!adminEdit.id) return;
+  if(!adminEdit.noteVal.trim()){ toast("A public note is required before saving admin changes.",C.amb); return; }
+  if(!adminEdit.name.trim()||!adminEdit.grade){ toast("Name and grade cannot be blank.",C.amb); return; }
+
+  const fid=adminEdit.id;
+  const sg2=seg(adminEdit.grade);
+  if(!sg2){ toast("Invalid grade selected.",C.red); return; }
+
+  // Determine final allocation
+  let aC=null,aA=null,pU=null,rsn="";
+  if(adminEdit.overrideClub&&adminEdit.clubVal){
+    // Admin explicitly chose a club — check capacity
+    const cl=gClub(adminEdit.clubVal);
+    if(!cl){ toast("Invalid club selected.",C.red); return; }
+    if(cl.acts&&!adminEdit.actVal){ toast("Please select an activity for this club.",C.amb); return; }
+    const {cc,ac}=counts(students.filter(s=>s._id!==fid));
+    let overCap=false;
+    if(cl.acts){ const act=cl.acts.find(a=>a.id===adminEdit.actVal); overCap=act&&(ac[act.id]||0)>=act.cap; }
+    else { overCap=(cc[cl.id]||0)>=cl.cap; }
+    if(overCap&&!forceOverCap){ adminEdit={...adminEdit,showConfirm:true}; render(); return; }
+    aC=cl.id; aA=adminEdit.actVal||null;
+    pU=overCap?"special-admission":"admin-reassign";
+    rsn=overCap?"Special Admission":"Admin club reassignment";
   } else {
-    if((cc[newClubId]||0)>=cl.cap) overCap=true;
+    // Re-run allocation from updated preferences
+    const {cc,ac}=counts(students.filter(s=>s._id!==fid));
+    const al=allocate({p1:adminEdit.p1,a1:adminEdit.a1,p2:adminEdit.p2,a2:adminEdit.a2,p3:adminEdit.p3,a3:adminEdit.a3,grade:adminEdit.grade,section:adminEdit.section},cc,ac);
+    aC=al.aC; aA=al.aA; pU=al.pU; rsn=al.rsn;
   }
-  if(overCap&&!forceOverCap){
-    adminReassign={...adminReassign,showConfirm:true,overCapacity:true}; render(); return;
-  }
-  // Determine pU label — if over cap, mark as "special-admission", else "admin-reassign"
-  const pU = overCap ? "special-admission" : "admin-reassign";
-  const rsn = overCap ? "Special Admission" : "Admin club reassignment";
-  const updates={aC:newClubId, aA:newActId||null, pU, rsn};
-  const finalNote = (note&&note.trim()) ? note.trim() : (overCap ? "NEW ADMISSION: SPECIAL CASE" : "");
-  if(finalNote) updates.adminNote=finalNote;
-  updates.adminNotePublic = overCap; // flag: show note in all views
+
+  const updates={
+    name:adminEdit.name.trim().toUpperCase(),
+    grade:adminEdit.grade, section:adminEdit.section.trim().toUpperCase(),
+    p1:adminEdit.p1,a1:adminEdit.a1,p2:adminEdit.p2,a2:adminEdit.a2,p3:adminEdit.p3,a3:adminEdit.a3,
+    aC, aA, pU, rsn,
+    adminNote:adminEdit.noteVal.trim(),
+    adminNotePublic:true,
+    adminEditAt:new Date().toISOString(),
+  };
+
   try{
     await setDoc(doc(db,"students",fid), updates, {merge:true});
-    adminReassign={id:null,clubVal:"",actVal:"",noteVal:"",notePublic:false,showConfirm:false,overCapacity:false};
-    const lbl=overCap?`✓ ${cl.name} — Special Admission added`:`✓ Reassigned to ${cl.name}`;
-    toast(lbl, C.teal);
-    render();
-  } catch(e){ toast("Reassign failed: "+e.message, C.red); }
+    adminCloseEdit();
+    toast(`✓ ${updates.name} — record updated`,C.teal,"Public note saved · allocation recalculated");
+  } catch(e){ toast("Save failed: "+e.message,C.red); }
 }
+
 
 // ── ADMIN NOTE UPDATE ─────────────────────────────────────────────────────────
 async function updateAdminNote(fid, note, makePublic){
@@ -500,67 +539,140 @@ function exportUnalloc(){
   dlCSV("GDGoenka_ManualReview.csv",[hdr,...sortStudents(bad).map(r=>[r.name,r.grade,r.section||"",r.p1||"",r.p2||"",r.p3||"",r.rsn||"",r.by||""].map(v=>`"${v}"`).join(","))]); toast("✓ Manual review list exported");
 }
 
-// ── ADMIN REASSIGN MODAL (inline) ────────────────────────────────────────────
-function buildReassignModal(s){
-  const sg2=seg(s.grade); if(!sg2) return "";
+// ── ADMIN FULL EDIT PANEL (inline) ───────────────────────────────────────────
+function buildAdminEditPanel(s){
+  const sg2=seg(adminEdit.grade||s.grade); if(!sg2) return "";
   const clubs=CLUBS[sg2];
-  const selClub=adminReassign.clubVal?gClub(adminReassign.clubVal):null;
   const {cc,ac}=counts(students.filter(x=>x._id!==s._id));
-  function capLabel(cl){
-    const n=cc[cl.id]||0; return n>=cl.cap?` [FULL: ${n}/${cl.cap}]`:` · ${cl.cap-n} left`;
-  }
-  function actCapLabel(a){
-    const n=ac[a.id]||0; return n>=a.cap?` [FULL: ${n}/${a.cap}]`:` · ${a.cap-n} left`;
-  }
+
+  function capLabel(cl){ const n=cc[cl.id]||0; return n>=cl.cap?` [FULL: ${n}/${cl.cap}]`:` · ${cl.cap-n} left`; }
+  function actCapLabel(a){ const n=ac[a.id]||0; return n>=a.cap?` [FULL: ${n}/${a.cap}]`:` · ${a.cap-n} left`; }
+  function prefSelClub(pk){ return adminEdit[pk]?gClub(adminEdit[pk]):null; }
+
   const overCapNow=(()=>{
-    if(!adminReassign.clubVal) return false;
-    const cl2=gClub(adminReassign.clubVal); if(!cl2) return false;
-    if(cl2.acts){ if(!adminReassign.actVal) return false; const act2=cl2.acts.find(a=>a.id===adminReassign.actVal); return act2&&(ac[act2.id]||0)>=act2.cap; }
+    if(!adminEdit.overrideClub||!adminEdit.clubVal) return false;
+    const cl2=gClub(adminEdit.clubVal); if(!cl2) return false;
+    if(cl2.acts){ if(!adminEdit.actVal) return false; const act2=cl2.acts.find(a=>a.id===adminEdit.actVal); return act2&&(ac[act2.id]||0)>=act2.cap; }
     return (cc[cl2.id]||0)>=cl2.cap;
   })();
-  return `<div style="background:${C.hd};border:2px solid ${C.teal};border-radius:8px;padding:16px 18px;margin-top:10px">
-    <div style="font-weight:700;font-size:13px;color:${C.teal};margin-bottom:12px">🔄 Admin Club Reassignment — <span style="color:${C.txt}">${s.name}</span></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+
+  const selOverrideClub=adminEdit.overrideClub&&adminEdit.clubVal?gClub(adminEdit.clubVal):null;
+
+  // Pref row builder for the edit panel
+  function epPrefRow(pfk,pak,lbl){
+    const sv=adminEdit[pfk], av=adminEdit[pak];
+    const cl2=sv?gClub(sv):null;
+    const otherPicked=new Set([adminEdit.p1,adminEdit.p2,adminEdit.p3].filter(x=>x&&x!==sv));
+    return `<div>
+      <label class="lbl">${lbl}</label>
+      <div style="display:grid;grid-template-columns:${cl2?.acts?"3fr 2fr":"1fr"};gap:8px">
+        <select onchange="adminEdit['${pfk}']=this.value;adminEdit['${pak}']='';render()" style="border-color:${C.teal}">
+          <option value="">— None —</option>
+          ${clubs.map(cl=>{
+            const ap=otherPicked.has(cl.id);
+            return `<option value="${cl.id}"${sv===cl.id?" selected":""}${ap?" disabled":""}>${cl.id}: ${cl.name}${cl.acts?" [+Act]":""}${ap?" · used above":capLabel(cl)}</option>`;
+          }).join("")}
+        </select>
+        ${cl2?.acts?`<select onchange="adminEdit['${pak}']=this.value;render()" style="border-color:${C.teal}">
+          <option value="">— Activity —</option>
+          ${cl2.acts.map(a=>`<option value="${a.id}"${av===a.id?" selected":""}>${a.name}${actCapLabel(a)}</option>`).join("")}
+        </select>`:""}
+      </div>
+    </div>`;
+  }
+
+  return `<div style="background:${C.hd};border:2px solid ${C.teal};border-radius:8px;padding:18px 20px;margin-top:10px">
+    <div style="font-weight:700;font-size:13px;color:${C.teal};margin-bottom:14px">✏️ Admin Edit — <span style="color:${C.txt}">${s.name}</span>
+      <span style="font-size:11px;font-weight:400;color:${C.mut};margin-left:8px">All changes are saved with a public note</span>
+    </div>
+
+    <!-- Row 1: Name / Grade / Section -->
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:12px">
       <div>
-        <label class="lbl">NEW CLUB</label>
-        <select onchange="adminReassign.clubVal=this.value;adminReassign.actVal='';adminReassign.showConfirm=false;render()" style="border-color:${C.teal}">
-          <option value="">— Select Club —</option>
-          ${clubs.map(cl=>`<option value="${cl.id}"${adminReassign.clubVal===cl.id?" selected":""}>${cl.id}: ${cl.name}${capLabel(cl)}</option>`).join("")}
+        <label class="lbl">STUDENT NAME</label>
+        <input value="${(adminEdit.name||"").replace(/"/g,'&quot;')}" oninput="adminEdit.name=this.value.toUpperCase()" style="text-transform:uppercase;border-color:${C.teal}" placeholder="FULL NAME"/>
+      </div>
+      <div>
+        <label class="lbl">GRADE</label>
+        <select onchange="adminEdit.grade=this.value;adminEdit.p1='';adminEdit.a1='';adminEdit.p2='';adminEdit.a2='';adminEdit.p3='';adminEdit.a3='';adminEdit.clubVal='';adminEdit.actVal='';render()" style="border-color:${C.teal}">
+          ${GRADES.map(g=>`<option value="${g}"${adminEdit.grade===g?" selected":""}>${g}</option>`).join("")}
         </select>
       </div>
-      ${selClub?.acts?`<div>
-        <label class="lbl">ACTIVITY</label>
-        <select onchange="adminReassign.actVal=this.value;adminReassign.showConfirm=false;render()" style="border-color:${C.teal}">
-          <option value="">— Select Activity —</option>
-          ${selClub.acts.map(a=>`<option value="${a.id}"${adminReassign.actVal===a.id?" selected":""}>${a.name}${actCapLabel(a)}</option>`).join("")}
-        </select>
-      </div>`:`<div></div>`}
+      <div>
+        <label class="lbl">SECTION</label>
+        <input value="${(adminEdit.section||"").replace(/"/g,'&quot;')}" oninput="adminEdit.section=this.value.toUpperCase()" maxlength="3" style="border-color:${C.teal}" placeholder="A"/>
+      </div>
     </div>
-    ${overCapNow?`<div style="background:${C.teal}15;border:1px solid ${C.teal}44;border-radius:6px;padding:9px 13px;margin-bottom:10px;font-size:12px;color:${C.teal}">
-      ⚠ <b>This club/activity is at full capacity.</b> If you proceed, this student will be marked as <b>Special Admission</b>. The note will be auto-filled and shown publicly in all views to explain the override transparently.
-    </div>`:""}
-    <div style="margin-bottom:10px">
-      <label class="lbl">NOTE ${overCapNow?`<span style="color:${C.teal};font-weight:700">· VISIBLE TO ALL (public)</span>`:`<span style="color:${C.mut};font-weight:400">(admin-only by default)</span>`}</label>
-      <input value="${overCapNow&&!adminReassign.noteVal?"NEW ADMISSION: SPECIAL CASE":(adminReassign.noteVal||"").replace(/"/g,'&quot;')}" oninput="adminReassign.noteVal=this.value" placeholder="${overCapNow?"NEW ADMISSION: SPECIAL CASE":"e.g. Parent request, coordinator approval..."}" style="border-color:${overCapNow?C.teal:C.bdr}"/>
-      ${!overCapNow?`<div style="margin-top:6px;display:flex;align-items:center;gap:7px">
-        <input type="checkbox" id="notePublicChk_${s._id}" ${adminReassign.notePublic?"checked":""} onchange="adminReassign.notePublic=this.checked;render()" style="width:auto;accent-color:${C.teal}"/>
-        <label for="notePublicChk_${s._id}" style="font-size:11px;color:${C.mut};cursor:pointer">Make this note visible to all (teachers, Class View, Club View)</label>
+
+    <!-- Row 2: Preferences -->
+    <div style="background:${C.card};border:1px solid ${C.bdr};border-radius:6px;padding:12px 14px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:${C.mut};letter-spacing:.8px;margin-bottom:10px">CLUB PREFERENCES</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        ${epPrefRow("p1","a1","1ST PREFERENCE")}
+        ${epPrefRow("p2","a2","2ND PREFERENCE")}
+        ${epPrefRow("p3","a3","3RD PREFERENCE")}
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:${C.mut}">
+        <input type="checkbox" id="ocChk_${s._id}" ${adminEdit.overrideClub?"checked":""} onchange="adminEdit.overrideClub=this.checked;adminEdit.showConfirm=false;render()" style="width:auto;accent-color:${C.teal}"/>
+        <label for="ocChk_${s._id}" style="cursor:pointer;margin-left:5px">Override final club directly (bypass preference re-allocation)</label>
+      </div>
+    </div>
+
+    <!-- Row 3: Override club (conditional) -->
+    ${adminEdit.overrideClub?`<div style="background:${C.teal}0d;border:1px solid ${C.teal}33;border-radius:6px;padding:12px 14px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:${C.teal};letter-spacing:.8px;margin-bottom:10px">FINAL CLUB OVERRIDE</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label class="lbl">CLUB</label>
+          <select onchange="adminEdit.clubVal=this.value;adminEdit.actVal='';adminEdit.showConfirm=false;render()" style="border-color:${C.teal}">
+            <option value="">— Select Club —</option>
+            ${clubs.map(cl=>`<option value="${cl.id}"${adminEdit.clubVal===cl.id?" selected":""}>${cl.id}: ${cl.name}${capLabel(cl)}</option>`).join("")}
+          </select>
+        </div>
+        ${selOverrideClub?.acts?`<div>
+          <label class="lbl">ACTIVITY</label>
+          <select onchange="adminEdit.actVal=this.value;adminEdit.showConfirm=false;render()" style="border-color:${C.teal}">
+            <option value="">— Select Activity —</option>
+            ${selOverrideClub.acts.map(a=>`<option value="${a.id}"${adminEdit.actVal===a.id?" selected":""}>${a.name}${actCapLabel(a)}</option>`).join("")}
+          </select>
+        </div>`:`<div></div>`}
+      </div>
+      ${overCapNow?`<div style="margin-top:10px;background:${C.teal}15;border:1px solid ${C.teal}44;border-radius:5px;padding:8px 12px;font-size:12px;color:${C.teal}">
+        ⚠ This club/activity is at full capacity. Student will be marked <b>✦ Special Admission</b> — note auto-filled below.
       </div>`:""}
+    </div>`:""}
+
+    <!-- Row 4: Public note (required) -->
+    <div style="margin-bottom:12px">
+      <label class="lbl">PUBLIC NOTE <span style="color:${C.red}">*</span> <span style="color:${C.teal};font-weight:400">— visible to all in Class View &amp; Club View</span></label>
+      <input value="${overCapNow&&!adminEdit.noteVal?"NEW ADMISSION: SPECIAL CASE":(adminEdit.noteVal||"").replace(/"/g,'&quot;')}"
+        oninput="adminEdit.noteVal=this.value"
+        placeholder="${overCapNow?"NEW ADMISSION: SPECIAL CASE":"Required — e.g. Transfer student · Parent request · Coordinator approval"}"
+        style="border-color:${adminEdit.noteVal.trim()||overCapNow?C.teal:C.red}"/>
+      ${!adminEdit.noteVal.trim()&&!overCapNow?`<div style="font-size:10px;color:${C.red};margin-top:3px">⚠ Note is required before saving</div>`:""}
     </div>
-    ${adminReassign.showConfirm&&overCapNow?`<div style="background:${C.teal}15;border:1px solid ${C.teal}44;border-radius:6px;padding:10px 14px;margin-bottom:10px;font-size:12px">
-      <div style="color:${C.teal};font-weight:700;margin-bottom:6px">Confirm Special Admission override?</div>
-      <div style="color:${C.mut};margin-bottom:10px">Student will be marked <b style="color:${C.teal}">Special Admission</b> with the note shown publicly in all views.</div>
+
+    <!-- Row 5: Over-cap confirm -->
+    ${adminEdit.showConfirm&&overCapNow?`<div style="background:${C.teal}15;border:1px solid ${C.teal}44;border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:12px">
+      <div style="color:${C.teal};font-weight:700;margin-bottom:5px">Confirm Special Admission override?</div>
+      <div style="color:${C.mut};margin-bottom:10px">Club is full. Student will be marked <b style="color:${C.teal}">✦ Special Admission</b> with the note shown publicly.</div>
       <div style="display:flex;gap:8px">
-        <button class="btn" onclick="adminReassignClub('${s._id}',adminReassign.clubVal,adminReassign.actVal,adminReassign.noteVal||'NEW ADMISSION: SPECIAL CASE',true)" style="background:${C.teal}">✓ Confirm Special Admission</button>
-        <button class="btnO" onclick="adminReassign.showConfirm=false;render()">Cancel</button>
+        <button class="btn" onclick="adminSaveEdit(true)" style="background:${C.teal}">✓ Confirm Special Admission</button>
+        <button class="btnO" onclick="adminEdit.showConfirm=false;render()">Back</button>
       </div>
     </div>`:""}
+
+    <!-- Row 6: Action buttons -->
     <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button class="btnO" onclick="adminReassign={id:null,clubVal:'',actVal:'',noteVal:'',notePublic:false,showConfirm:false,overCapacity:false};render()">Cancel</button>
-      <button class="btn" onclick="adminReassignClub('${s._id}',adminReassign.clubVal,adminReassign.actVal,adminReassign.noteVal||(${overCapNow}?'NEW ADMISSION: SPECIAL CASE':''),false)" style="background:${C.teal}" ${!adminReassign.clubVal||(selClub?.acts&&!adminReassign.actVal)?"disabled":""}>Apply${overCapNow?" Special Admission":" Reassignment"}</button>
+      <button class="btnO" onclick="adminCloseEdit()">Cancel</button>
+      <button class="btn" onclick="adminSaveEdit(false)" style="background:${C.teal}"
+        ${(!adminEdit.name.trim()||!adminEdit.grade||(!adminEdit.noteVal.trim()&&!overCapNow)||(adminEdit.overrideClub&&(!adminEdit.clubVal||(selOverrideClub?.acts&&!adminEdit.actVal))))?"disabled":""}>
+        ✓ Save Changes
+      </button>
     </div>
   </div>`;
 }
+
 
 // ── BUILD UI ──────────────────────────────────────────────────────────────────
 function render(){
@@ -774,7 +886,7 @@ function buildUI(){
       :`<div class="ov"><table>
         <thead><tr>${["#","Name","Grade","Sec","P1","P2","P3","✦ Club","✦ Activity","✦ Status","Time",...(isAdmin?[""]:[])].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
         <tbody>${myEntries.map((s,i)=>{ const cl=gClub(s.aC),ac2=s.aA?gAct(s.aC,s.aA):null;
-          const isReassigning=adminReassign.id===s._id;
+          const isReassigning=adminEdit.id===s._id;
           const statusLabel=s.pU==="admin-reassign"?"Admin Reassigned":s.pU==="special-admission"?"✦ Special Admission":s.pU==="admin"?"Admin":s.pU?s.pU+" pref":s.rsn||"—";
           return `<tr style="${!s.aC?"background:"+C.red+"0d":s.pU==="special-admission"?"background:"+C.teal+"0d":""}">
           <td style="color:${C.mut}">${myEntries.length-i}</td>
@@ -787,11 +899,11 @@ function buildUI(){
           <td>${chip(statusLabel,rc(s.pU||""))}</td>
           <td style="color:${C.mut};font-size:10px">${s.at?new Date(s.at).toLocaleTimeString():"—"}</td>
           ${isAdmin?`<td style="white-space:nowrap">
-            <button onclick="if(adminReassign.id==='${s._id}'){adminReassign={id:null,clubVal:'',actVal:'',noteVal:'',notePublic:false,showConfirm:false,overCapacity:false};}else{adminReassign={id:'${s._id}',clubVal:'${s.aC||""}',actVal:'${s.aA||""}',noteVal:'',notePublic:false,showConfirm:false,overCapacity:false};}render()" style="background:none;border:1px solid ${C.teal};border-radius:4px;padding:3px 7px;font-size:11px;color:${C.teal};cursor:pointer;margin-right:4px" title="Reassign club">🔄</button>
+            <button onclick="adminEdit.id==='${s._id}'?adminCloseEdit():adminOpenEdit('${s._id}')" style="background:none;border:1px solid ${C.teal};border-radius:4px;padding:3px 7px;font-size:11px;color:${C.teal};cursor:pointer;margin-right:4px" title="Edit student">✏️ Edit</button>
             <button onclick="DS('${s._id}')" style="background:none;border:none;color:${C.red};font-size:15px;line-height:1">✕</button>
           </td>`:""}
         </tr>
-        ${isAdmin&&isReassigning?`<tr><td colspan="12" style="padding:0 8px 12px">${buildReassignModal(s)}</td></tr>`:""}
+        ${isAdmin&&isReassigning?`<tr><td colspan="12" style="padding:0 8px 12px">${buildAdminEditPanel(s)}</td></tr>`:""}
         `; }).join("")}</tbody>
       </table></div>`}
   </div>`:""}`;
@@ -900,7 +1012,7 @@ function buildUI(){
         <tbody>
           ${!filt.length?`<tr><td colspan="12" style="text-align:center;color:${C.mut};padding:28px">No records match</td></tr>`:""}
           ${filt.map(r=>{ const cl=gClub(r.aC),ac2=r.aA?gAct(r.aC,r.aA):null;
-            const isReassigning=adminReassign.id===r._id;
+            const isReassigning=adminEdit.id===r._id;
             const statusLabel=r.pU==="admin-reassign"?"🔄 Reassigned":r.pU==="special-admission"?"✦ Special Admission":r.pU==="admin"?"Admin":r.pU?r.pU+" pref":r.rsn||"—";
             return `<tr style="${!r.aC?"background:"+C.red+"0d":r.pU==="special-admission"?"background:"+C.teal+"0d":""}">
             <td style="font-weight:600">${r.name}</td><td>${chip(r.grade,C.acc)}</td><td>${r.section||"—"}</td>
@@ -919,11 +1031,11 @@ function buildUI(){
               </div>
             </td>
             <td style="white-space:nowrap">
-              <button onclick="if(adminReassign.id==='${r._id}'){adminReassign={id:null,clubVal:'',actVal:'',noteVal:'',notePublic:false,showConfirm:false,overCapacity:false};}else{adminReassign={id:'${r._id}',clubVal:'${r.aC||""}',actVal:'${r.aA||""}',noteVal:'',notePublic:false,showConfirm:false,overCapacity:false};}render()" style="background:none;border:1px solid ${C.teal};border-radius:4px;padding:3px 7px;font-size:11px;color:${C.teal};cursor:pointer;margin-right:4px" title="Reassign club">🔄</button>
+              <button onclick="adminEdit.id==='${r._id}'?adminCloseEdit():adminOpenEdit('${r._id}')" style="background:none;border:1px solid ${C.teal};border-radius:4px;padding:3px 7px;font-size:11px;color:${C.teal};cursor:pointer;margin-right:4px" title="Edit student">✏️ Edit</button>
               <button onclick="DS('${r._id}')" style="background:none;border:none;color:${C.red};font-size:15px;line-height:1">✕</button>
             </td>`:""}
           </tr>
-          ${isAdmin&&isReassigning?`<tr><td colspan="12" style="padding:0 8px 12px">${buildReassignModal(r)}</td></tr>`:""}
+          ${isAdmin&&isReassigning?`<tr><td colspan="12" style="padding:0 8px 12px">${buildAdminEditPanel(r)}</td></tr>`:""}
           `; }).join("")}
         </tbody>
       </table></div>
@@ -986,7 +1098,7 @@ function buildUI(){
       {n:"04",c:C.pur,t:"DUPLICATE PROTECTION",pts:["Same teacher cannot enter the same student name + grade twice","Entry is blocked with a clear red warning toast","Different teachers CAN enter students with the same name","This handles genuine cases of two students with identical names","Admin can delete any entry from the Results tab if needed"]},
       {n:"05",c:C.teal,t:"EXPORTS AVAILABLE",pts:["Master List — every student, one row, all details","Club-wise — grouped by club","Grade-wise — grouped by grade","Grade & Section-wise — grade → section breakdown","Club + Grade-wise — club → grade breakdown","Club + Grade + Section-wise — most detailed","Manual Review — only unallocated students"]},
       {n:"06",c:C.red,t:"STATUS COLOUR GUIDE",pts:["🟢 GREEN = 1st preference honored","🔵 BLUE = 2nd preference used","🟡 AMBER = 3rd preference used","🟣 PURPLE = administratively allocated","🩵 TEAL = admin reassignment or Special Admission","✦ Special Admission = new student added to a full club, note shown publicly","🔴 RED row = unallocated — needs admin review","Admin: Results tab has full search, filter and delete"]},
-      {n:"07",c:C.teal,t:"ADMIN CLUB REASSIGNMENT",pts:["Admin can manually reassign any student to a different club","Click the 🔄 button on any row in Entry or Results tab","Select the new club (and activity if required)","If the club is at full capacity, the student is marked as ✦ Special Admission — not Waitlisted","Special Admission note auto-fills as 'NEW ADMISSION: SPECIAL CASE' and is shown publicly in Class View and Club View","For regular (within-capacity) reassignments, the note is private by default"]},
+      {n:"07",c:C.teal,t:"ADMIN FULL EDIT",pts:["Admin can fully edit any student record — name, grade, section, all 3 preferences, and final club","Click ✏️ Edit on any row in the Entry or Results tab (admin view only)","Preferences re-allocate automatically on save, or admin can override the final club directly","Over-capacity overrides mark the student as ✦ Special Admission — note auto-fills publicly","A public note is required for every admin save — it appears as a 📋 badge in Class View &amp; Club View","Original entry-teacher name and timestamp are preserved for full audit trail"]},
       {n:"08",c:C.pur,t:"ADMIN NOTES — PUBLIC & PRIVATE",pts:["Special Admission overrides auto-fill the note 'NEW ADMISSION: SPECIAL CASE' — shown publicly in all views","Public notes appear as a teal 📋 badge below the student's row in Class View and Club View","For regular reassignments, notes are private by default — only visible in the Results tab and Master CSV","Admin can toggle any note between 🌐 Public and 🔒 Private using the icon in the Results tab","Use for: parent requests, medical grounds, coordinator approvals, transfer students, etc."]},
     ].map(card=>`<div class="card" style="border-left:3px solid ${card.c};padding:16px 18px">
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
@@ -1331,7 +1443,9 @@ window.DLT  = ()=>dlCSV("Template_GDGoenka.csv",[
   `"Aarav Sharma","VI","A","B1","","B3","","B5","B5-Eco","Ms. Das"`,
   `"Priya Roy","VII","B","B7","B7-Western","B6","B6-Yoga","B2","B2-Debate","Mr. Sen"`
 ]);
-window.AR   = adminReassignClub;
+window.AOE  = adminOpenEdit;
+window.ACE  = adminCloseEdit;
+window.ASE  = adminSaveEdit;
 window.UAN  = updateAdminNote;
 window.render = render;
 window._cv_nv = "";
@@ -1356,7 +1470,7 @@ Object.defineProperties(window,{
   cvGrVal:{get:()=>cvGrVal,set:v=>{cvGrVal=v;}},
   clubViewSeg:{get:()=>clubViewSeg,set:v=>{clubViewSeg=v;}},
   clubViewClub:{get:()=>clubViewClub,set:v=>{clubViewClub=v;}},
-  adminReassign:{get:()=>adminReassign,set:v=>{adminReassign=v;}},
+  adminEdit:{get:()=>adminEdit,set:v=>{adminEdit=v;}},
 });
 render();
 </script>
