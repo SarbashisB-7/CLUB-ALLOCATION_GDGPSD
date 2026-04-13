@@ -121,7 +121,7 @@ const gClub   = id      => ALL.find(c=>c.id===id);
 const gAct    = (ci,ai) => gClub(ci)?.acts?.find(a=>a.id===ai);
 const isAdmin = new URLSearchParams(location.search).get("admin")==="true";
 const C={bg:"#0D1117",card:"#161B22",bdr:"#30363D",hd:"#1C2128",acc:"#2F81F7",grn:"#3FB950",amb:"#D29922",red:"#F85149",pur:"#BC8CFF",teal:"#39C5CF",txt:"#E6EDF3",mut:"#8B949E"};
-const rc   = p => p==="1st"?C.grn:p==="2nd"?C.acc:p==="3rd"?C.amb:p==="admin"?C.pur:C.red;
+const rc   = p => p==="1st"?C.grn:p==="2nd"?C.acc:p==="3rd"?C.amb:p==="admin"?C.pur:p==="admin-reassign"?C.teal:p==="special-admission"?C.teal:C.red;
 const chip = (t,c)=>`<span class="chip" style="background:${c}22;color:${c};border:1px solid ${c}44">${t}</span>`;
 const btn  = (t,fn,col,sm)=>`<button class="btn${sm?" btn-sm":""}" style="background:${col}" onclick="${fn}">${t}</button>`;
 function dlCSV(name,rows){ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([rows.join("\n")],{type:"text/csv"})); a.download=name; a.click(); }
@@ -175,6 +175,8 @@ let csvTxt="",csvErr="";
 let fSeg="ALL",fSt="ALL",fQ="",fGr="ALL";
 let cvGr="ALL",cvSec="ALL",cvEdit=null,cvEditVal="",cvNameEdit=null,cvNameVal="",cvGrEdit=null,cvGrVal="";
 let clubViewSeg="ALL",clubViewClub="ALL";
+// Admin reassign state
+let adminReassign={id:null,clubVal:"",actVal:"",noteVal:"",notePublic:false,showConfirm:false,overCapacity:false};
 
 // ── LISTENERS ─────────────────────────────────────────────────────────────────
 onSnapshot(query(COL,orderBy("at","asc")),snap=>{
@@ -260,7 +262,50 @@ async function updateName(fid, newName){
   } catch(e){ toast("Update failed: "+e.message, C.red); }
 }
 
-// ── DELETE OWN ENTRY ──────────────────────────────────────────────────────────
+// ── ADMIN REASSIGN CLUB ───────────────────────────────────────────────────────
+async function adminReassignClub(fid, newClubId, newActId, note, forceOverCap){
+  if(!isAdmin||!fid) return;
+  const cl=gClub(newClubId); if(!cl) return;
+  const {cc,ac}=counts(students.filter(s=>s._id!==fid)); // exclude this student from counts
+  // Capacity check
+  let overCap=false;
+  if(cl.acts){
+    if(!newActId){ toast("Please select an activity for this club",C.amb); return; }
+    const act=cl.acts.find(a=>a.id===newActId);
+    if(act&&(ac[act.id]||0)>=act.cap) overCap=true;
+  } else {
+    if((cc[newClubId]||0)>=cl.cap) overCap=true;
+  }
+  if(overCap&&!forceOverCap){
+    adminReassign={...adminReassign,showConfirm:true,overCapacity:true}; render(); return;
+  }
+  // Determine pU label — if over cap, mark as "special-admission", else "admin-reassign"
+  const pU = overCap ? "special-admission" : "admin-reassign";
+  const rsn = overCap ? "Special Admission" : "Admin club reassignment";
+  const updates={aC:newClubId, aA:newActId||null, pU, rsn};
+  const finalNote = (note&&note.trim()) ? note.trim() : (overCap ? "NEW ADMISSION: SPECIAL CASE" : "");
+  if(finalNote) updates.adminNote=finalNote;
+  updates.adminNotePublic = overCap; // flag: show note in all views
+  try{
+    await setDoc(doc(db,"students",fid), updates, {merge:true});
+    adminReassign={id:null,clubVal:"",actVal:"",noteVal:"",notePublic:false,showConfirm:false,overCapacity:false};
+    const lbl=overCap?`✓ ${cl.name} — Special Admission added`:`✓ Reassigned to ${cl.name}`;
+    toast(lbl, C.teal);
+    render();
+  } catch(e){ toast("Reassign failed: "+e.message, C.red); }
+}
+
+// ── ADMIN NOTE UPDATE ─────────────────────────────────────────────────────────
+async function updateAdminNote(fid, note, makePublic){
+  if(!isAdmin||!fid) return;
+  try{
+    const updates={adminNote:note.trim()||null};
+    if(makePublic!==undefined) updates.adminNotePublic=makePublic;
+    await setDoc(doc(db,"students",fid),updates,{merge:true});
+    toast("✓ Note saved",C.grn);
+  } catch(e){ toast("Note save failed: "+e.message,C.red); }
+}
+
 async function delOwnEntry(fid){
   if(!fid) return;
   if(!confirm("Remove this entry? The student will be unregistered from their club.")) return;
@@ -299,7 +344,7 @@ function exportClubViewXLSX(clubId){
   const rosterData = mem.map((s,i)=>{
     const a = s.aA ? gAct(s.aC,s.aA) : null;
     return {"#":i+1, "Student Name":s.name, "Grade":s.grade, "Section":s.section||"",
-            "Sub-Club / Activity":a?a.name:"—", "Allocation Status":s.pU==="admin"?"Admin Alloc":s.pU?s.pU+" preference":s.rsn||"",
+            "Sub-Club / Activity":a?a.name:"—", "Allocation Status":s.pU==="admin-reassign"?"Admin Reassigned":s.pU==="special-admission"?"Special Admission":s.pU==="admin"?"Admin Alloc":s.pU?s.pU+" preference":s.rsn||"",
             "Entered By":s.by||""};
   });
   const wsRoster = XLSX.utils.json_to_sheet(rosterData);
@@ -417,8 +462,10 @@ function sortStudents(arr){
 
 // ── EXPORTS ───────────────────────────────────────────────────────────────────
 function exportMaster(){
-  const hdr=`"#","Name","Grade","Section","Pref1","Act1","Pref2","Act2","Pref3","Act3","Allocated Club","Activity","Pref Used","Status","Teacher","Time"`;
-  const rows=sortStudents(students).map((r,i)=>{ const cl=gClub(r.aC),ac=r.aA?gAct(r.aC,r.aA):null; return [i+1,r.name,r.grade,r.section||"",r.p1||"",r.a1||"",r.p2||"",r.a2||"",r.p3||"",r.a3||"",cl?cl.name:"UNALLOCATED",ac?ac.name:"",r.pU||"",r.rsn||"",r.by||"",r.at?new Date(r.at).toLocaleString():""].map(v=>`"${v}"`).join(","); });
+  const hdr=`"#","Name","Grade","Section","Pref1","Act1","Pref2","Act2","Pref3","Act3","Allocated Club","Activity","Pref Used","Status","Teacher","Time","Admin Note"`;
+  const rows=sortStudents(students).map((r,i)=>{ const cl=gClub(r.aC),ac=r.aA?gAct(r.aC,r.aA):null;
+    const statusLabel=r.pU==="admin-reassign"?"Admin Reassigned":r.pU==="special-admission"?"Special Admission":r.pU==="admin"?"Admin":r.pU||"";
+    return [i+1,r.name,r.grade,r.section||"",r.p1||"",r.a1||"",r.p2||"",r.a2||"",r.p3||"",r.a3||"",cl?cl.name:"UNALLOCATED",ac?ac.name:"",statusLabel,r.rsn||"",r.by||"",r.at?new Date(r.at).toLocaleString():"",r.adminNote||""].map(v=>`"${v}"`).join(","); });
   dlCSV("GDGoenka_Master_2026-27.csv",[hdr,...rows]); toast("✓ Master list exported");
 }
 function exportClubWise(){
@@ -453,7 +500,69 @@ function exportUnalloc(){
   dlCSV("GDGoenka_ManualReview.csv",[hdr,...sortStudents(bad).map(r=>[r.name,r.grade,r.section||"",r.p1||"",r.p2||"",r.p3||"",r.rsn||"",r.by||""].map(v=>`"${v}"`).join(","))]); toast("✓ Manual review list exported");
 }
 
-// ── RENDER ────────────────────────────────────────────────────────────────────
+// ── ADMIN REASSIGN MODAL (inline) ────────────────────────────────────────────
+function buildReassignModal(s){
+  const sg2=seg(s.grade); if(!sg2) return "";
+  const clubs=CLUBS[sg2];
+  const selClub=adminReassign.clubVal?gClub(adminReassign.clubVal):null;
+  const {cc,ac}=counts(students.filter(x=>x._id!==s._id));
+  function capLabel(cl){
+    const n=cc[cl.id]||0; return n>=cl.cap?` [FULL: ${n}/${cl.cap}]`:` · ${cl.cap-n} left`;
+  }
+  function actCapLabel(a){
+    const n=ac[a.id]||0; return n>=a.cap?` [FULL: ${n}/${a.cap}]`:` · ${a.cap-n} left`;
+  }
+  const overCapNow=(()=>{
+    if(!adminReassign.clubVal) return false;
+    const cl2=gClub(adminReassign.clubVal); if(!cl2) return false;
+    if(cl2.acts){ if(!adminReassign.actVal) return false; const act2=cl2.acts.find(a=>a.id===adminReassign.actVal); return act2&&(ac[act2.id]||0)>=act2.cap; }
+    return (cc[cl2.id]||0)>=cl2.cap;
+  })();
+  return `<div style="background:${C.hd};border:2px solid ${C.teal};border-radius:8px;padding:16px 18px;margin-top:10px">
+    <div style="font-weight:700;font-size:13px;color:${C.teal};margin-bottom:12px">🔄 Admin Club Reassignment — <span style="color:${C.txt}">${s.name}</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+      <div>
+        <label class="lbl">NEW CLUB</label>
+        <select onchange="adminReassign.clubVal=this.value;adminReassign.actVal='';adminReassign.showConfirm=false;render()" style="border-color:${C.teal}">
+          <option value="">— Select Club —</option>
+          ${clubs.map(cl=>`<option value="${cl.id}"${adminReassign.clubVal===cl.id?" selected":""}>${cl.id}: ${cl.name}${capLabel(cl)}</option>`).join("")}
+        </select>
+      </div>
+      ${selClub?.acts?`<div>
+        <label class="lbl">ACTIVITY</label>
+        <select onchange="adminReassign.actVal=this.value;adminReassign.showConfirm=false;render()" style="border-color:${C.teal}">
+          <option value="">— Select Activity —</option>
+          ${selClub.acts.map(a=>`<option value="${a.id}"${adminReassign.actVal===a.id?" selected":""}>${a.name}${actCapLabel(a)}</option>`).join("")}
+        </select>
+      </div>`:`<div></div>`}
+    </div>
+    ${overCapNow?`<div style="background:${C.teal}15;border:1px solid ${C.teal}44;border-radius:6px;padding:9px 13px;margin-bottom:10px;font-size:12px;color:${C.teal}">
+      ⚠ <b>This club/activity is at full capacity.</b> If you proceed, this student will be marked as <b>Special Admission</b>. The note will be auto-filled and shown publicly in all views to explain the override transparently.
+    </div>`:""}
+    <div style="margin-bottom:10px">
+      <label class="lbl">NOTE ${overCapNow?`<span style="color:${C.teal};font-weight:700">· VISIBLE TO ALL (public)</span>`:`<span style="color:${C.mut};font-weight:400">(admin-only by default)</span>`}</label>
+      <input value="${overCapNow&&!adminReassign.noteVal?"NEW ADMISSION: SPECIAL CASE":(adminReassign.noteVal||"").replace(/"/g,'&quot;')}" oninput="adminReassign.noteVal=this.value" placeholder="${overCapNow?"NEW ADMISSION: SPECIAL CASE":"e.g. Parent request, coordinator approval..."}" style="border-color:${overCapNow?C.teal:C.bdr}"/>
+      ${!overCapNow?`<div style="margin-top:6px;display:flex;align-items:center;gap:7px">
+        <input type="checkbox" id="notePublicChk_${s._id}" ${adminReassign.notePublic?"checked":""} onchange="adminReassign.notePublic=this.checked;render()" style="width:auto;accent-color:${C.teal}"/>
+        <label for="notePublicChk_${s._id}" style="font-size:11px;color:${C.mut};cursor:pointer">Make this note visible to all (teachers, Class View, Club View)</label>
+      </div>`:""}
+    </div>
+    ${adminReassign.showConfirm&&overCapNow?`<div style="background:${C.teal}15;border:1px solid ${C.teal}44;border-radius:6px;padding:10px 14px;margin-bottom:10px;font-size:12px">
+      <div style="color:${C.teal};font-weight:700;margin-bottom:6px">Confirm Special Admission override?</div>
+      <div style="color:${C.mut};margin-bottom:10px">Student will be marked <b style="color:${C.teal}">Special Admission</b> with the note shown publicly in all views.</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="adminReassignClub('${s._id}',adminReassign.clubVal,adminReassign.actVal,adminReassign.noteVal||'NEW ADMISSION: SPECIAL CASE',true)" style="background:${C.teal}">✓ Confirm Special Admission</button>
+        <button class="btnO" onclick="adminReassign.showConfirm=false;render()">Cancel</button>
+      </div>
+    </div>`:""}
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btnO" onclick="adminReassign={id:null,clubVal:'',actVal:'',noteVal:'',notePublic:false,showConfirm:false,overCapacity:false};render()">Cancel</button>
+      <button class="btn" onclick="adminReassignClub('${s._id}',adminReassign.clubVal,adminReassign.actVal,adminReassign.noteVal||(${overCapNow}?'NEW ADMISSION: SPECIAL CASE':''),false)" style="background:${C.teal}" ${!adminReassign.clubVal||(selClub?.acts&&!adminReassign.actVal)?"disabled":""}>Apply${overCapNow?" Special Admission":" Reassignment"}</button>
+    </div>
+  </div>`;
+}
+
+// ── BUILD UI ──────────────────────────────────────────────────────────────────
 function render(){
   document.getElementById("root").innerHTML=buildUI();
   // Re-attach delegated click handler on every render (covers Firebase-triggered re-renders too)
@@ -664,7 +773,10 @@ function buildUI(){
       ?`<div style="text-align:center;padding:28px;color:${C.mut};font-size:12px">No entries yet — add your first student above</div>`
       :`<div class="ov"><table>
         <thead><tr>${["#","Name","Grade","Sec","P1","P2","P3","✦ Club","✦ Activity","✦ Status","Time",...(isAdmin?[""]:[])].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
-        <tbody>${myEntries.map((s,i)=>{ const cl=gClub(s.aC),ac2=s.aA?gAct(s.aC,s.aA):null; return `<tr style="${!s.aC?"background:"+C.red+"0d":""}">
+        <tbody>${myEntries.map((s,i)=>{ const cl=gClub(s.aC),ac2=s.aA?gAct(s.aC,s.aA):null;
+          const isReassigning=adminReassign.id===s._id;
+          const statusLabel=s.pU==="admin-reassign"?"Admin Reassigned":s.pU==="special-admission"?"✦ Special Admission":s.pU==="admin"?"Admin":s.pU?s.pU+" pref":s.rsn||"—";
+          return `<tr style="${!s.aC?"background:"+C.red+"0d":s.pU==="special-admission"?"background:"+C.teal+"0d":""}">
           <td style="color:${C.mut}">${myEntries.length-i}</td>
           <td style="font-weight:600">${s.name}</td>
           <td>${chip(s.grade,C.acc)}</td>
@@ -672,10 +784,15 @@ function buildUI(){
           <td>${chip(s.p1||"—",C.grn)}</td><td>${chip(s.p2||"—",C.amb)}</td><td>${chip(s.p3||"—",C.pur)}</td>
           <td style="font-weight:600;color:${cl?C.txt:C.red}">${cl?cl.id+": "+cl.name:"UNALLOCATED"}</td>
           <td style="color:${C.mut}">${ac2?ac2.name:"—"}</td>
-          <td>${chip(s.pU==="admin"?"Admin":s.pU?s.pU+" pref":s.rsn||"—",rc(s.pU||""))}</td>
+          <td>${chip(statusLabel,rc(s.pU||""))}</td>
           <td style="color:${C.mut};font-size:10px">${s.at?new Date(s.at).toLocaleTimeString():"—"}</td>
-          ${isAdmin?`<td><button onclick="DS('${s._id}')" style="background:none;border:none;color:${C.red};font-size:15px;line-height:1">✕</button></td>`:""}
-        </tr>`; }).join("")}</tbody>
+          ${isAdmin?`<td style="white-space:nowrap">
+            <button onclick="if(adminReassign.id==='${s._id}'){adminReassign={id:null,clubVal:'',actVal:'',noteVal:'',notePublic:false,showConfirm:false,overCapacity:false};}else{adminReassign={id:'${s._id}',clubVal:'${s.aC||""}',actVal:'${s.aA||""}',noteVal:'',notePublic:false,showConfirm:false,overCapacity:false};}render()" style="background:none;border:1px solid ${C.teal};border-radius:4px;padding:3px 7px;font-size:11px;color:${C.teal};cursor:pointer;margin-right:4px" title="Reassign club">🔄</button>
+            <button onclick="DS('${s._id}')" style="background:none;border:none;color:${C.red};font-size:15px;line-height:1">✕</button>
+          </td>`:""}
+        </tr>
+        ${isAdmin&&isReassigning?`<tr><td colspan="12" style="padding:0 8px 12px">${buildReassignModal(s)}</td></tr>`:""}
+        `; }).join("")}</tbody>
       </table></div>`}
   </div>`:""}`;
 
@@ -735,6 +852,8 @@ function buildUI(){
     if(fSt==="2ND"&&r.pU!=="2nd") return false;
     if(fSt==="3RD"&&r.pU!=="3rd") return false;
     if(fSt==="ADM"&&r.pU!=="admin") return false;
+    if(fSt==="REASSIGN"&&r.pU!=="admin-reassign") return false;
+    if(fSt==="WAITLIST"&&r.pU!=="special-admission") return false;
     if(fSt==="FAIL"&&r.aC) return false;
     const q=fQ.toLowerCase();
     return !q||r.name.toLowerCase().includes(q)||r.grade.toLowerCase().includes(q);
@@ -766,6 +885,8 @@ function buildUI(){
         <option value="2ND"${fSt==="2ND"?" selected":""}>2nd Preference</option>
         <option value="3RD"${fSt==="3RD"?" selected":""}>3rd Preference</option>
         <option value="ADM"${fSt==="ADM"?" selected":""}>Admin Allocated</option>
+        <option value="REASSIGN"${fSt==="REASSIGN"?" selected":""}>Admin Reassigned</option>
+        <option value="WAITLIST"${fSt==="WAITLIST"?" selected":""}>Waitlisted</option>
         <option value="FAIL"${fSt==="FAIL"?" selected":""}>Unallocated</option>
       </select>
       <div style="margin-left:auto;display:flex;gap:8px">
@@ -775,18 +896,35 @@ function buildUI(){
     <div class="card">
       <div style="font-size:12px;color:${C.mut};margin-bottom:10px">Showing ${filt.length} of ${total}</div>
       <div class="ov"><table>
-        <thead><tr>${["Name","Grade","Sec","P1","P2","P3","✦ Club","✦ Activity","✦ Status","Teacher",...(isAdmin?[""]:[])].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
+        <thead><tr>${["Name","Grade","Sec","P1","P2","P3","✦ Club","✦ Activity","✦ Status","Teacher",...(isAdmin?["Admin Note",""]:[])].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
         <tbody>
-          ${!filt.length?`<tr><td colspan="11" style="text-align:center;color:${C.mut};padding:28px">No records match</td></tr>`:""}
-          ${filt.map(r=>{ const cl=gClub(r.aC),ac2=r.aA?gAct(r.aC,r.aA):null; return `<tr style="${!r.aC?"background:"+C.red+"0d":""}">
+          ${!filt.length?`<tr><td colspan="12" style="text-align:center;color:${C.mut};padding:28px">No records match</td></tr>`:""}
+          ${filt.map(r=>{ const cl=gClub(r.aC),ac2=r.aA?gAct(r.aC,r.aA):null;
+            const isReassigning=adminReassign.id===r._id;
+            const statusLabel=r.pU==="admin-reassign"?"🔄 Reassigned":r.pU==="special-admission"?"✦ Special Admission":r.pU==="admin"?"Admin":r.pU?r.pU+" pref":r.rsn||"—";
+            return `<tr style="${!r.aC?"background:"+C.red+"0d":r.pU==="special-admission"?"background:"+C.teal+"0d":""}">
             <td style="font-weight:600">${r.name}</td><td>${chip(r.grade,C.acc)}</td><td>${r.section||"—"}</td>
             <td>${chip(r.p1||"—",C.grn)}</td><td>${chip(r.p2||"—",C.amb)}</td><td>${chip(r.p3||"—",C.pur)}</td>
             <td style="font-weight:600;color:${cl?C.txt:C.red}">${cl?cl.id+": "+cl.name:"UNALLOCATED"}</td>
             <td style="color:${C.mut}">${ac2?ac2.name:"—"}</td>
-            <td>${chip(r.pU==="admin"?"Admin":r.pU?r.pU+" pref":r.rsn||"—",rc(r.pU||""))}</td>
+            <td>${chip(statusLabel,rc(r.pU||""))}</td>
             <td style="color:${C.mut};font-size:11px">${r.by||"—"}</td>
-            ${isAdmin?`<td><button onclick="DS('${r._id}')" style="background:none;border:none;color:${C.red};font-size:15px;line-height:1">✕</button></td>`:""}
-          </tr>`; }).join("")}
+            ${isAdmin?`<td style="color:${C.mut};font-size:11px;max-width:180px">
+              <div style="display:flex;align-items:flex-start;gap:4px;flex-wrap:wrap">
+                <span style="color:${r.adminNote?C.teal:C.mut};font-style:${r.adminNote?"normal":"italic"}">${r.adminNote||"—"}</span>
+                <div style="display:flex;gap:3px;flex-shrink:0">
+                  <button onclick="const n=prompt('Note (leave blank to remove):','${(r.adminNote||"").replace(/'/g,"\\'")}');if(n!==null)updateAdminNote('${r._id}',n,${r.adminNotePublic?true:false})" style="background:none;border:1px solid ${C.bdr};border-radius:3px;padding:1px 5px;font-size:10px;color:${C.mut};cursor:pointer" title="Edit note">✎</button>
+                  <button onclick="updateAdminNote('${r._id}','${(r.adminNote||"").replace(/'/g,"\\'")}',${!r.adminNotePublic})" style="background:none;border:1px solid ${r.adminNotePublic?C.teal:C.bdr};border-radius:3px;padding:1px 5px;font-size:10px;color:${r.adminNotePublic?C.teal:C.mut};cursor:pointer" title="${r.adminNotePublic?"Visible to all — click to make private":"Private — click to make public"}">${r.adminNotePublic?"🌐":"🔒"}</button>
+                </div>
+              </div>
+            </td>
+            <td style="white-space:nowrap">
+              <button onclick="if(adminReassign.id==='${r._id}'){adminReassign={id:null,clubVal:'',actVal:'',noteVal:'',notePublic:false,showConfirm:false,overCapacity:false};}else{adminReassign={id:'${r._id}',clubVal:'${r.aC||""}',actVal:'${r.aA||""}',noteVal:'',notePublic:false,showConfirm:false,overCapacity:false};}render()" style="background:none;border:1px solid ${C.teal};border-radius:4px;padding:3px 7px;font-size:11px;color:${C.teal};cursor:pointer;margin-right:4px" title="Reassign club">🔄</button>
+              <button onclick="DS('${r._id}')" style="background:none;border:none;color:${C.red};font-size:15px;line-height:1">✕</button>
+            </td>`:""}
+          </tr>
+          ${isAdmin&&isReassigning?`<tr><td colspan="12" style="padding:0 8px 12px">${buildReassignModal(r)}</td></tr>`:""}
+          `; }).join("")}
         </tbody>
       </table></div>
     </div>`;
@@ -847,7 +985,9 @@ function buildUI(){
       {n:"03",c:C.amb,t:"PREFERENCE FALLBACK",pts:["Always enter all 3 preferences even if clubs look full","If 1st preference full → 2nd tried automatically","If 2nd full → 3rd tried automatically","If all 3 full → best available club assigned administratively","Capacity warnings appear live on the form","Unallocated students flagged for manual review"]},
       {n:"04",c:C.pur,t:"DUPLICATE PROTECTION",pts:["Same teacher cannot enter the same student name + grade twice","Entry is blocked with a clear red warning toast","Different teachers CAN enter students with the same name","This handles genuine cases of two students with identical names","Admin can delete any entry from the Results tab if needed"]},
       {n:"05",c:C.teal,t:"EXPORTS AVAILABLE",pts:["Master List — every student, one row, all details","Club-wise — grouped by club","Grade-wise — grouped by grade","Grade & Section-wise — grade → section breakdown","Club + Grade-wise — club → grade breakdown","Club + Grade + Section-wise — most detailed","Manual Review — only unallocated students"]},
-      {n:"06",c:C.red,t:"STATUS COLOUR GUIDE",pts:["🟢 GREEN = 1st preference honored","🔵 BLUE = 2nd preference used","🟡 AMBER = 3rd preference used","🟣 PURPLE = administratively allocated","🔴 RED row = unallocated — needs admin review","Admin: Results tab has full search, filter and delete"]},
+      {n:"06",c:C.red,t:"STATUS COLOUR GUIDE",pts:["🟢 GREEN = 1st preference honored","🔵 BLUE = 2nd preference used","🟡 AMBER = 3rd preference used","🟣 PURPLE = administratively allocated","🩵 TEAL = admin reassignment or Special Admission","✦ Special Admission = new student added to a full club, note shown publicly","🔴 RED row = unallocated — needs admin review","Admin: Results tab has full search, filter and delete"]},
+      {n:"07",c:C.teal,t:"ADMIN CLUB REASSIGNMENT",pts:["Admin can manually reassign any student to a different club","Click the 🔄 button on any row in Entry or Results tab","Select the new club (and activity if required)","If the club is at full capacity, the student is marked as ✦ Special Admission — not Waitlisted","Special Admission note auto-fills as 'NEW ADMISSION: SPECIAL CASE' and is shown publicly in Class View and Club View","For regular (within-capacity) reassignments, the note is private by default"]},
+      {n:"08",c:C.pur,t:"ADMIN NOTES — PUBLIC & PRIVATE",pts:["Special Admission overrides auto-fill the note 'NEW ADMISSION: SPECIAL CASE' — shown publicly in all views","Public notes appear as a teal 📋 badge below the student's row in Class View and Club View","For regular reassignments, notes are private by default — only visible in the Results tab and Master CSV","Admin can toggle any note between 🌐 Public and 🔒 Private using the icon in the Results tab","Use for: parent requests, medical grounds, coordinator approvals, transfer students, etc."]},
     ].map(card=>`<div class="card" style="border-left:3px solid ${card.c};padding:16px 18px">
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
         <span style="font-size:20px;font-weight:900;color:${card.c}">${card.n}</span>
@@ -968,10 +1108,11 @@ function buildUI(){
                   </td>
                   <td style="font-weight:600;color:${cl?C.txt:C.red}">${cl?cl.id+": "+cl.name:"UNALLOCATED"}</td>
                   <td style="color:${C.mut}">${ac2?ac2.name:"—"}</td>
-                  <td>${chip(s.pU==="admin"?"Admin":s.pU?s.pU+" pref":s.rsn||"—",rc(s.pU||""))}</td>
+                  <td>${chip(s.pU==="admin-reassign"?"🔄 Reassigned":s.pU==="special-admission"?"✦ Special Admission":s.pU==="admin"?"Admin":s.pU?s.pU+" pref":s.rsn||"—",rc(s.pU||""))}</td>
                   <td style="color:${C.mut};font-size:11px">${s.by||"—"}</td>
                   ${isAdmin?`<td><button onclick="DS('${s._id}')" style="background:none;border:none;color:#F85149;font-size:15px;line-height:1;cursor:pointer">✕</button></td>`:"<td></td>"}
-                </tr>`;
+                </tr>
+                ${s.adminNotePublic&&s.adminNote?`<tr><td></td><td colspan="8" style="padding:2px 12px 8px"><span style="font-size:11px;background:${C.teal}18;color:${C.teal};border:1px solid ${C.teal}44;border-radius:4px;padding:3px 10px;display:inline-block">📋 ${s.adminNote}</span></td></tr>`:""}
               }).join("")}
             </tbody>
           </table></div>
@@ -1039,10 +1180,11 @@ function buildUI(){
                       :`<span style="display:inline-flex;align-items:center;gap:4px"><span class="chip" style="background:#2F81F722;color:#2F81F7;border:1px solid #2F81F744">${s.section||"—"}</span>${canEdit?`<button data-action="editsec" data-id="${s._id}" style="background:none;border:1px solid #30363D;border-radius:4px;padding:2px 5px;font-size:11px;color:#8B949E;cursor:pointer" title="Edit section">✎</button>`:""}</span>`}
                     </td>
                     <td style="color:#8B949E">${a?a.name:"—"}</td>
-                    <td>${chip(s.pU==="admin"?"Admin":s.pU?s.pU+" pref":s.rsn||"—",rc(s.pU||""))}</td>
+                    <td>${chip(s.pU==="admin-reassign"?"🔄 Reassigned":s.pU==="special-admission"?"✦ Special Admission":s.pU==="admin"?"Admin":s.pU?s.pU+" pref":s.rsn||"—",rc(s.pU||""))}</td>
                     <td style="color:#8B949E;font-size:11px">${s.by||"—"}</td>
                     ${isAdmin?`<td><button onclick="DS('${s._id}')" style="background:none;border:none;color:#F85149;font-size:15px;line-height:1;cursor:pointer">✕</button></td>`:"<td></td>"}
-                  </tr>`; }).join("")}</tbody>
+                  </tr>
+                  ${s.adminNotePublic&&s.adminNote?`<tr><td></td><td colspan="6" style="padding:2px 12px 8px"><span style="font-size:11px;background:${C.teal}18;color:${C.teal};border:1px solid ${C.teal}44;border-radius:4px;padding:3px 10px;display:inline-block">📋 ${s.adminNote}</span></td></tr>`:""}</tbody>
                 </table></div>
               </div>`;
             }).join("")}
@@ -1133,7 +1275,7 @@ function exportClassViewCSV(grFilter,secFilter){
     return {"#":i+1,"Student Name":s.name,"Grade":s.grade,"Section":s.section||"",
             "Club Allocated":cl?cl.id+": "+cl.name:"UNALLOCATED",
             "Sub-Club / Activity":ac2?ac2.name:"—",
-            "Status":s.pU==="admin"?"Admin Alloc":s.pU?s.pU+" preference":s.rsn||"",
+            "Status":s.pU==="admin-reassign"?"Admin Reassigned":s.pU==="special-admission"?"Special Admission":s.pU==="admin"?"Admin Alloc":s.pU?s.pU+" preference":s.rsn||"",
             "Entered By":s.by||""};
   });
   const ws = XLSX.utils.json_to_sheet([]);
@@ -1189,6 +1331,8 @@ window.DLT  = ()=>dlCSV("Template_GDGoenka.csv",[
   `"Aarav Sharma","VI","A","B1","","B3","","B5","B5-Eco","Ms. Das"`,
   `"Priya Roy","VII","B","B7","B7-Western","B6","B6-Yoga","B2","B2-Debate","Mr. Sen"`
 ]);
+window.AR   = adminReassignClub;
+window.UAN  = updateAdminNote;
 window.render = render;
 window._cv_nv = "";
 window._cv_sv = "";
@@ -1212,6 +1356,7 @@ Object.defineProperties(window,{
   cvGrVal:{get:()=>cvGrVal,set:v=>{cvGrVal=v;}},
   clubViewSeg:{get:()=>clubViewSeg,set:v=>{clubViewSeg=v;}},
   clubViewClub:{get:()=>clubViewClub,set:v=>{clubViewClub=v;}},
+  adminReassign:{get:()=>adminReassign,set:v=>{adminReassign=v;}},
 });
 render();
 </script>
