@@ -708,6 +708,7 @@ function render(){
     const si=document.getElementById("adminSearchInput");
     if(si){ const v=si.value; si.focus(); si.setSelectionRange(v.length,v.length); }
   }
+  root.onclick = function(e){
     const btn = e.target.closest("[data-action]");
     if(!btn) return;
     const action = btn.dataset.action;
