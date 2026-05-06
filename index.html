@@ -173,7 +173,7 @@ let teacher={
 let form={name:"",p1:"",a1:"",p2:"",a2:"",p3:"",a3:""};
 let csvTxt="",csvErr="";
 let fSeg="ALL",fSt="ALL",fQ="",fGr="ALL";
-let searchQ="";
+let searchQ="", nsQ="";
 let cvGr="ALL",cvSec="ALL",cvEdit=null,cvEditVal="",cvNameEdit=null,cvNameVal="",cvGrEdit=null,cvGrVal="";
 let clubViewSeg="ALL",clubViewClub="ALL";
 // Admin full-edit state
@@ -706,6 +706,10 @@ function render(){
   if(!root) return;
   if(tab==="search"){
     const si=document.getElementById("adminSearchInput");
+    if(si){ const v=si.value; si.focus(); si.setSelectionRange(v.length,v.length); }
+  }
+  if(tab==="newstudents"){
+    const si=document.getElementById("nsSearchInput");
     if(si){ const v=si.value; si.focus(); si.setSelectionRange(v.length,v.length); }
   }
   root.onclick = function(e){
@@ -1427,38 +1431,68 @@ function buildUI(){
   const nsAlreadyActioned = nsStudents.filter(s => s.adminNote && ["NEW ADMISSION","SPECIAL CASE"].includes(s.adminNote));
   const nsPending = nsStudents.filter(s => !s.adminNote || !["NEW ADMISSION","SPECIAL CASE"].includes(s.adminNote));
 
+  // Search filter applied to both sections
+  const nsQTrim = nsQ.trim().toLowerCase();
+  const nsFilter = s => !nsQTrim || s.name.toLowerCase().includes(nsQTrim)
+    || (s.grade||"").toLowerCase().includes(nsQTrim)
+    || (s.section||"").toLowerCase().includes(nsQTrim)
+    || (s.by||"").toLowerCase().includes(nsQTrim);
+  const nsPendingFiltered = nsPending.filter(nsFilter);
+  const nsActionedFiltered = nsAlreadyActioned.filter(nsFilter);
+
+  function nsHighlight(name){
+    if(!nsQTrim) return name;
+    const idx=name.toLowerCase().indexOf(nsQTrim);
+    if(idx<0) return name;
+    return name.slice(0,idx)
+      +'<mark style="background:'+C.teal+'33;color:'+C.teal+';border-radius:2px;padding:0 2px">'+name.slice(idx,idx+nsQTrim.length)+'</mark>'
+      +name.slice(idx+nsQTrim.length);
+  }
+
   const newStudentsTab = `
   <div class="card" style="border-left:4px solid ${C.teal};padding:16px 20px;margin-bottom:16px">
     <div style="font-weight:700;font-size:15px;margin-bottom:4px;color:${C.teal}">🆕 New Students &amp; Special Permissions</div>
-    <div style="font-size:12px;color:${C.mut};margin-bottom:10px">Students who could not get their 1st or 2nd preference are listed here. Use this panel to reassign them to a suitable club and mark each with <b style="color:${C.teal}">NEW ADMISSION</b> or <b style="color:${C.pur}">SPECIAL CASE</b>. All changes are saved publicly and are visible in Class View &amp; Club View.</div>
-    <div style="display:flex;gap:12px;flex-wrap:wrap">
-      <div style="background:${C.teal}15;border:1px solid ${C.teal}33;border-radius:6px;padding:10px 18px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:${C.teal}">${nsPending.length}</div>
-        <div style="font-size:10px;color:${C.mut};letter-spacing:.8px">PENDING REVIEW</div>
+    <div style="font-size:12px;color:${C.mut};margin-bottom:12px">Students who could not get their 1st or 2nd preference are listed here. Use this panel to reassign them to a suitable club and mark each with <b style="color:${C.teal}">NEW ADMISSION</b> or <b style="color:${C.pur}">SPECIAL CASE</b>. All changes are saved publicly and are visible in Class View &amp; Club View.</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between">
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div style="background:${C.teal}15;border:1px solid ${C.teal}33;border-radius:6px;padding:10px 18px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:${C.teal}">${nsPending.length}</div>
+          <div style="font-size:10px;color:${C.mut};letter-spacing:.8px">PENDING</div>
+        </div>
+        <div style="background:${C.grn}15;border:1px solid ${C.grn}33;border-radius:6px;padding:10px 18px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:${C.grn}">${nsAlreadyActioned.length}</div>
+          <div style="font-size:10px;color:${C.mut};letter-spacing:.8px">ACTIONED</div>
+        </div>
+        <div style="background:${C.card};border:1px solid ${C.bdr};border-radius:6px;padding:10px 18px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:${C.txt}">${nsStudents.length}</div>
+          <div style="font-size:10px;color:${C.mut};letter-spacing:.8px">TOTAL</div>
+        </div>
       </div>
-      <div style="background:${C.grn}15;border:1px solid ${C.grn}33;border-radius:6px;padding:10px 18px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:${C.grn}">${nsAlreadyActioned.length}</div>
-        <div style="font-size:10px;color:${C.mut};letter-spacing:.8px">ACTIONED</div>
-      </div>
-      <div style="background:${C.card};border:1px solid ${C.bdr};border-radius:6px;padding:10px 18px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:${C.txt}">${nsStudents.length}</div>
-        <div style="font-size:10px;color:${C.mut};letter-spacing:.8px">TOTAL</div>
+      <div style="position:relative;min-width:260px;flex:1;max-width:400px">
+        <input id="nsSearchInput" value="${nsQ.replace(/"/g,'&quot;')}"
+          oninput="nsQ=this.value;render()"
+          onkeydown="if(event.key==='Escape'){nsQ='';render();}"
+          placeholder="🔍 Search by name, grade, section…"
+          style="width:100%;padding:9px 36px 9px 12px;font-size:13px;border:2px solid ${nsQTrim?C.teal:C.bdr};border-radius:7px"/>
+        ${nsQ?`<button onclick="nsQ='';render()" style="position:absolute;right:9px;top:50%;transform:translateY(-50%);background:none;border:none;color:${C.mut};font-size:15px;cursor:pointer;line-height:1">✕</button>`:""}
       </div>
     </div>
+    ${nsQTrim&&(nsPendingFiltered.length+nsActionedFiltered.length===0)?`<div style="font-size:12px;color:${C.red};margin-top:10px">No students match <b>"${nsQ}"</b></div>`:""}
+    ${nsQTrim?`<div style="font-size:11px;color:${C.mut};margin-top:8px">Showing <b style="color:${C.txt}">${nsPendingFiltered.length+nsActionedFiltered.length}</b> of ${nsStudents.length} students matching <b style="color:${C.teal}">"${nsQ}"</b></div>`:""}
   </div>
   ${nsStudents.length===0?`<div class="card" style="text-align:center;padding:48px;color:${C.mut}">
     <div style="font-size:36px;margin-bottom:10px">🎉</div>
     <div style="font-size:14px;font-weight:700;margin-bottom:4px">All students got their 1st or 2nd preference!</div>
     <div style="font-size:12px">No new students pending review.</div>
   </div>`:`
-  ${nsPending.length>0?`<div style="font-size:11px;font-weight:700;color:${C.teal};letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid ${C.bdr}">PENDING REVIEW — ${nsPending.length} student${nsPending.length!==1?"s":""}</div>
-  ${nsPending.map(s=>{
+  ${nsPendingFiltered.length>0?`<div style="font-size:11px;font-weight:700;color:${C.teal};letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid ${C.bdr}">PENDING REVIEW — ${nsPendingFiltered.length}${nsQTrim?" shown of "+nsPending.length:""} student${nsPending.length!==1?"s":""}</div>
+  ${nsPendingFiltered.map(s=>{
     const cl=gClub(s.aC), ac2=s.aA?gAct(s.aC,s.aA):null;
     const isEditing=adminEdit.id===s._id;
     return `<div class="card" style="margin-bottom:12px;border-left:3px solid ${s.pU==='3rd'?C.amb:C.pur}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
         <div>
-          <div style="font-weight:700;font-size:14px;margin-bottom:4px">${s.name} ${chip(s.grade,C.acc)} <span style="color:${C.mut};font-size:11px">${s.section||""}</span></div>
+          <div style="font-weight:700;font-size:14px;margin-bottom:4px">${nsHighlight(s.name)} ${chip(s.grade,C.acc)} <span style="color:${C.mut};font-size:11px">${s.section||""}</span></div>
           <div style="font-size:12px;color:${C.mut};margin-bottom:4px">
             Pref 1: ${chip(s.p1||"—",C.grn)} &nbsp;Pref 2: ${chip(s.p2||"—",C.amb)} &nbsp;Pref 3: ${chip(s.p3||"—",C.pur)}
           </div>
@@ -1475,20 +1509,20 @@ function buildUI(){
       </div>
       ${isEditing?`<div style="margin-top:12px">${buildAdminEditPanel(s)}</div>`:""}
     </div>`;
-  }).join("")}`:""}
-  ${nsAlreadyActioned.length>0?`<div style="font-size:11px;font-weight:700;color:${C.grn};letter-spacing:1px;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid ${C.bdr}">ACTIONED — ${nsAlreadyActioned.length} student${nsAlreadyActioned.length!==1?"s":""}</div>
-  ${nsAlreadyActioned.map(s=>{
+  }).join("")}`:(nsPending.length>0&&nsQTrim?`<div style="font-size:12px;color:${C.mut};margin-bottom:12px;font-style:italic">No pending students match "${nsQ}"</div>`:"")}
+  ${nsActionedFiltered.length>0?`<div style="font-size:11px;font-weight:700;color:${C.grn};letter-spacing:1px;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid ${C.bdr}">ACTIONED — ${nsActionedFiltered.length}${nsQTrim?" shown of "+nsAlreadyActioned.length:""} student${nsAlreadyActioned.length!==1?"s":""}</div>
+  ${nsActionedFiltered.map(s=>{
     const cl=gClub(s.aC), ac2=s.aA?gAct(s.aC,s.aA):null;
     const isEditing=adminEdit.id===s._id;
     const noteCol=s.adminNote==="SPECIAL CASE"?C.pur:C.teal;
     return `<div class="card" style="margin-bottom:10px;border-left:3px solid ${C.grn};opacity:.9">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
         <div>
-          <div style="font-weight:700;font-size:13px;margin-bottom:3px">${s.name} ${chip(s.grade,C.acc)} <span style="color:${C.mut};font-size:11px">${s.section||""}</span></div>
+          <div style="font-weight:700;font-size:13px;margin-bottom:3px">${nsHighlight(s.name)} ${chip(s.grade,C.acc)} <span style="color:${C.mut};font-size:11px">${s.section||""}</span></div>
           <div style="font-size:12px">
             Club: <b>${cl?cl.id+": "+cl.name:"UNALLOCATED"}</b>${ac2?` · <span style="color:${C.mut}">${ac2.name}</span>`:""}
           </div>
-          <div style="margin-top:5px"><span style="background:${noteCol}18;color:${noteCol};border:1px solid ${noteCol}44;border-radius:4px;padding:2px 10px;font-size:11px;font-weight:700">📋 ${s.adminNote}</span></div>
+          <div style="margin-top:5px"><span style="background:${noteCol}18;color:${noteCol};border:1px solid ${noteCol}44;border-radius:4px;padding:2px 10px;font-size:11px;font-weight:700">${s.adminNote==="NEW ADMISSION"?"🆕":s.adminNote==="SPECIAL CASE"?"⭐":"📋"} ${s.adminNote}</span></div>
         </div>
         <button onclick="adminEdit.id==='${s._id}'?adminCloseEdit():adminOpenEdit('${s._id}',true)"
           style="background:transparent;border:1px solid ${C.bdr};border-radius:5px;padding:5px 12px;font-size:11px;color:${C.mut};cursor:pointer">
@@ -1497,8 +1531,9 @@ function buildUI(){
       </div>
       ${isEditing?`<div style="margin-top:12px">${buildAdminEditPanel(s)}</div>`:""}
     </div>`;
-  }).join("")}`:""}
+  }).join("")}`:(nsAlreadyActioned.length>0&&nsQTrim?`<div style="font-size:12px;color:${C.mut};margin-bottom:12px;font-style:italic">No actioned students match "${nsQ}"</div>`:"")}
   `}`;
+
 
   // ── SEARCH TAB (admin only) ───────────────────────────────────────────────────
   const sqTrim=searchQ.trim().toLowerCase();
@@ -1693,6 +1728,7 @@ Object.defineProperties(window,{
   clubViewClub:{get:()=>clubViewClub,set:v=>{clubViewClub=v;}},
   adminEdit:{get:()=>adminEdit,set:v=>{adminEdit=v;}},
   searchQ:{get:()=>searchQ,set:v=>{searchQ=v;}},
+  nsQ:{get:()=>nsQ,set:v=>{nsQ=v;}},
 });
 render();
 </script>
