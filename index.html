@@ -173,6 +173,7 @@ let teacher={
 let form={name:"",p1:"",a1:"",p2:"",a2:"",p3:"",a3:""};
 let csvTxt="",csvErr="";
 let fSeg="ALL",fSt="ALL",fQ="",fGr="ALL";
+let searchQ="";
 let cvGr="ALL",cvSec="ALL",cvEdit=null,cvEditVal="",cvNameEdit=null,cvNameVal="",cvGrEdit=null,cvGrVal="";
 let clubViewSeg="ALL",clubViewClub="ALL";
 // Admin full-edit state
@@ -703,7 +704,10 @@ function render(){
   // Re-attach delegated click handler on every render (covers Firebase-triggered re-renders too)
   const root = document.getElementById("root");
   if(!root) return;
-  root.onclick = function(e){
+  if(tab==="search"){
+    const si=document.getElementById("adminSearchInput");
+    if(si){ const v=si.value; si.focus(); si.setSelectionRange(v.length,v.length); }
+  }
     const btn = e.target.closest("[data-action]");
     if(!btn) return;
     const action = btn.dataset.action;
@@ -781,7 +785,7 @@ function buildUI(){
   const usedGr=[...new Set(students.map(r=>r.grade))].sort((a,b)=>GRADES.indexOf(a)-GRADES.indexOf(b));
 
   const TABS=isAdmin
-    ?[["entry","📝 Entry"],["bulk","📤 Bulk"],["results","📊 Results"],["newstudents","🆕 New Students"],["exports","📁 Export"],["capacity","🏫 Capacity"],["classview","🎓 Class View"],["clubview","🏅 Club View"],["access","🔐 Access"],["guide","📖 Guide"]]
+    ?[["entry","📝 Entry"],["bulk","📤 Bulk"],["results","📊 Results"],["newstudents","🆕 New Students"],["search","🔍 Search"],["exports","📁 Export"],["capacity","🏫 Capacity"],["classview","🎓 Class View"],["clubview","🏅 Club View"],["access","🔐 Access"],["guide","📖 Guide"]]
     :[["entry","📝 Entry"],["classview","🎓 Class View"],["clubview","🏅 Club View"],["capacity","🏫 Live Capacity"],["guide","📖 Guide"]];
 
   const toastHTML=`<div style="position:fixed;top:14px;right:14px;z-index:999;display:flex;flex-direction:column;gap:8px;align-items:flex-end">
@@ -1495,11 +1499,91 @@ function buildUI(){
   }).join("")}`:""}
   `}`;
 
+  // ── SEARCH TAB (admin only) ───────────────────────────────────────────────────
+  const sqTrim=searchQ.trim().toLowerCase();
+  const sqResults=sqTrim.length<2?[]:students.filter(s=>{
+    const nameMatch=s.name.toLowerCase().includes(sqTrim);
+    const gradeMatch=s.grade.toLowerCase().includes(sqTrim);
+    const secMatch=(s.section||"").toLowerCase().includes(sqTrim);
+    const byMatch=(s.by||"").toLowerCase().includes(sqTrim);
+    const clubMatch=(()=>{ const cl=gClub(s.aC); return cl&&cl.name.toLowerCase().includes(sqTrim); })();
+    const noteMatch=(s.adminNote||"").toLowerCase().includes(sqTrim);
+    return nameMatch||gradeMatch||secMatch||byMatch||clubMatch||noteMatch;
+  });
+  const searchTab=`
+  <div class="card" style="border-left:4px solid ${C.acc};padding:16px 20px;margin-bottom:16px">
+    <div style="font-weight:700;font-size:15px;margin-bottom:6px">🔍 Student Search</div>
+    <div style="font-size:12px;color:${C.mut};margin-bottom:14px">Search by name, grade, section, club, teacher, or note. Full edit &amp; delete available from results.</div>
+    <div style="position:relative;max-width:480px">
+      <input id="adminSearchInput" value="${searchQ.replace(/"/g,'&quot;')}"
+        oninput="searchQ=this.value;render()"
+        onkeydown="if(event.key==='Escape'){searchQ='';render();}"
+        placeholder="Type student name, grade, club…"
+        style="width:100%;padding:10px 40px 10px 14px;font-size:14px;border:2px solid ${sqTrim.length>=2?C.acc:C.bdr};border-radius:8px;letter-spacing:.3px"
+        autofocus/>
+      ${searchQ?`<button onclick="searchQ='';render()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:${C.mut};font-size:16px;cursor:pointer;line-height:1">✕</button>`:""}
+    </div>
+    ${sqTrim.length>0&&sqTrim.length<2?`<div style="font-size:11px;color:${C.amb};margin-top:8px">⚠ Type at least 2 characters to search</div>`:""}
+  </div>
+  ${sqTrim.length>=2?`
+  <div style="font-size:11px;color:${C.mut};margin-bottom:10px;padding-left:2px">
+    ${sqResults.length===0?`No students match <b style="color:${C.txt}">"${searchQ}"</b>`:`<b style="color:${C.txt}">${sqResults.length}</b> result${sqResults.length!==1?"s":""} for <b style="color:${C.acc}">"${searchQ}"</b>`}
+  </div>
+  ${sqResults.length===0
+    ?`<div class="card" style="text-align:center;padding:40px;color:${C.mut}">
+        <div style="font-size:32px;margin-bottom:10px">🔍</div>
+        <div>No students found matching <b style="color:${C.txt}">"${searchQ}"</b></div>
+        <div style="font-size:11px;margin-top:6px">Try a different name, grade, or club</div>
+      </div>`
+    :`<div class="card" style="padding:0;overflow:hidden">
+      <div class="ov"><table>
+        <thead><tr>${["#","Name","Grade","Sec","P1","P2","P3","✦ Club","✦ Activity","✦ Status","Teacher","Admin Note",""].map(h=>`<th>${h}</th>`).join("")}</tr></thead>
+        <tbody>
+        ${sqResults.map((r,i)=>{
+          const cl=gClub(r.aC),ac2=r.aA?gAct(r.aC,r.aA):null;
+          const isReassigning=adminEdit.id===r._id;
+          const statusLabel=r.pU==="admin-reassign"?"🔄 Reassigned":r.pU==="special-admission"?"✦ Special Admission":r.pU==="admin"?"Admin":r.pU?r.pU+" pref":r.rsn||"—";
+          const noteColSQ=r.adminNote==="SPECIAL CASE"?C.pur:C.teal;
+          // Highlight matched text in name
+          const hlName=(()=>{
+            const idx=r.name.toLowerCase().indexOf(sqTrim);
+            if(idx<0) return r.name;
+            return r.name.slice(0,idx)+'<mark style="background:'+C.acc+'33;color:'+C.acc+';border-radius:2px;padding:0 2px">'+r.name.slice(idx,idx+sqTrim.length)+'</mark>'+r.name.slice(idx+sqTrim.length);
+          })();
+          return `<tr style="${!r.aC?"background:"+C.red+"0d":r.pU==="special-admission"?"background:"+C.teal+"0d":""}">
+            <td style="color:${C.mut}">${i+1}</td>
+            <td style="font-weight:600">${hlName}</td>
+            <td>${chip(r.grade,C.acc)}</td>
+            <td>${r.section||"—"}</td>
+            <td>${chip(r.p1||"—",C.grn)}</td><td>${chip(r.p2||"—",C.amb)}</td><td>${chip(r.p3||"—",C.pur)}</td>
+            <td style="font-weight:600;color:${cl?C.txt:C.red}">${cl?cl.id+": "+cl.name:"UNALLOCATED"}</td>
+            <td style="color:${C.mut}">${ac2?ac2.name:"—"}</td>
+            <td>${chip(statusLabel,rc(r.pU||""))}</td>
+            <td style="color:${C.mut};font-size:11px">${r.by||"—"}</td>
+            <td style="font-size:11px;max-width:180px">
+              ${r.adminNote
+                ?`<span style="background:${noteColSQ}18;color:${noteColSQ};border:1px solid ${noteColSQ}44;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;white-space:nowrap">${r.adminNote==="NEW ADMISSION"?"🆕":r.adminNote==="SPECIAL CASE"?"⭐":"📋"} ${r.adminNote}</span>`
+                :`<span style="color:${C.mut};font-style:italic">—</span>`}
+            </td>
+            <td style="white-space:nowrap">
+              <button onclick="adminEdit.id==='${r._id}'?adminCloseEdit():adminOpenEdit('${r._id}',${r.pU==='admin'||r.pU==='3rd'})"
+                style="background:none;border:1px solid ${C.teal};border-radius:4px;padding:3px 7px;font-size:11px;color:${C.teal};cursor:pointer;margin-right:4px">✏️ Edit</button>
+              <button onclick="DS('${r._id}')" style="background:none;border:none;color:${C.red};font-size:15px;line-height:1;cursor:pointer">✕</button>
+            </td>
+          </tr>
+          ${isReassigning?`<tr><td colspan="13" style="padding:0 8px 12px">${buildAdminEditPanel(r)}</td></tr>`:""}`;
+        }).join("")}
+        </tbody>
+      </table></div>
+    </div>`}
+  `:""}`;
+
   const tabs={
     entry:entryTab,
     bulk:isAdmin?bulkTab:`<div class="card" style="text-align:center;padding:40px;color:${C.mut}">Admin access required</div>`,
     results:isAdmin?resultsTab:`<div class="card" style="text-align:center;padding:40px;color:${C.mut}">Admin access required</div>`,
     newstudents:isAdmin?newStudentsTab:`<div class="card" style="text-align:center;padding:40px;color:${C.mut}">Admin access required</div>`,
+    search:isAdmin?searchTab:`<div class="card" style="text-align:center;padding:40px;color:${C.mut}">Admin access required</div>`,
     exports:isAdmin?exportsTab:`<div class="card" style="text-align:center;padding:40px;color:${C.mut}">Admin access required</div>`,
     capacity:capacityTab,
     classview:classViewTab,
@@ -1607,6 +1691,7 @@ Object.defineProperties(window,{
   clubViewSeg:{get:()=>clubViewSeg,set:v=>{clubViewSeg=v;}},
   clubViewClub:{get:()=>clubViewClub,set:v=>{clubViewClub=v;}},
   adminEdit:{get:()=>adminEdit,set:v=>{adminEdit=v;}},
+  searchQ:{get:()=>searchQ,set:v=>{searchQ=v;}},
 });
 render();
 </script>
