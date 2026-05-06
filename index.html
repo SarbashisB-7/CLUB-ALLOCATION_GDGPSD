@@ -681,15 +681,15 @@ function buildAdminEditPanel(s){
       <div style="color:${C.teal};font-weight:700;margin-bottom:5px">Confirm Special Admission override?</div>
       <div style="color:${C.mut};margin-bottom:10px">Club is full. Student will be marked <b style="color:${C.teal}">✦ Special Admission</b> with the note shown publicly.</div>
       <div style="display:flex;gap:8px">
-        <button class="btn" onclick="adminSaveEdit(true)" style="background:${C.teal}">✓ Confirm Special Admission</button>
+        <button class="btn" onclick="ASE(true)" style="background:${C.teal}">✓ Confirm Special Admission</button>
         <button class="btnO" onclick="adminEdit.showConfirm=false;render()">Back</button>
       </div>
     </div>`:""}
 
     <!-- Row 6: Action buttons -->
     <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button class="btnO" onclick="adminCloseEdit()">Cancel</button>
-      <button class="btn" onclick="adminSaveEdit(false)" style="background:${C.teal}"
+      <button class="btnO" onclick="ACE()">Cancel</button>
+      <button class="btn" onclick="ASE(false)" style="background:${C.teal}"
         ${(!adminEdit.name.trim()||!adminEdit.grade||(!adminEdit.noteVal.trim()&&!overCapNow)||(adminEdit.overrideClub&&(!adminEdit.clubVal||(selOverrideClub?.acts&&!adminEdit.actVal))))?"disabled":""}>
         ✓ Save Changes
       </button>
@@ -931,7 +931,7 @@ function buildUI(){
           <td>${chip(statusLabel,rc(s.pU||""))}</td>
           <td style="color:${C.mut};font-size:10px">${s.at?new Date(s.at).toLocaleTimeString():"—"}</td>
           ${isAdmin?`<td style="white-space:nowrap">
-            <button onclick="adminEdit.id==='${s._id}'?adminCloseEdit():adminOpenEdit('${s._id}')" style="background:none;border:1px solid ${C.teal};border-radius:4px;padding:3px 7px;font-size:11px;color:${C.teal};cursor:pointer;margin-right:4px" title="Edit student">✏️ Edit</button>
+            <button onclick="adminEdit.id==='${s._id}'?ACE():AOE('${s._id}')" style="background:none;border:1px solid ${C.teal};border-radius:4px;padding:3px 7px;font-size:11px;color:${C.teal};cursor:pointer;margin-right:4px" title="Edit student">✏️ Edit</button>
             <button onclick="DS('${s._id}')" style="background:none;border:none;color:${C.red};font-size:15px;line-height:1">✕</button>
           </td>`:""}
         </tr>
@@ -1063,7 +1063,7 @@ function buildUI(){
               </div>
             </td>
             <td style="white-space:nowrap">
-              <button onclick="adminEdit.id==='${r._id}'?adminCloseEdit():adminOpenEdit('${r._id}')" style="background:none;border:1px solid ${C.teal};border-radius:4px;padding:3px 7px;font-size:11px;color:${C.teal};cursor:pointer;margin-right:4px" title="Edit student">✏️ Edit</button>
+              <button onclick="adminEdit.id==='${r._id}'?ACE():AOE('${r._id}')" style="background:none;border:1px solid ${C.teal};border-radius:4px;padding:3px 7px;font-size:11px;color:${C.teal};cursor:pointer;margin-right:4px" title="Edit student">✏️ Edit</button>
               <button onclick="DS('${r._id}')" style="background:none;border:none;color:${C.red};font-size:15px;line-height:1">✕</button>
             </td>`:""}
           </tr>
@@ -1502,7 +1502,7 @@ function buildUI(){
           </div>
           <div style="font-size:11px;color:${C.mut};margin-top:3px">Entered by: ${s.by||"—"} · ${s.at?new Date(s.at).toLocaleString():"—"}</div>
         </div>
-        <button onclick="adminEdit.id==='${s._id}'?adminCloseEdit():adminOpenEdit('${s._id}',true)"
+        <button onclick="adminEdit.id==='${s._id}'?ACE():AOE('${s._id}',true)"
           style="background:${isEditing?C.bdr:C.teal};border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;white-space:nowrap">
           ${isEditing?"✕ Cancel":"✏️ Reassign Club"}
         </button>
@@ -1524,7 +1524,7 @@ function buildUI(){
           </div>
           <div style="margin-top:5px"><span style="background:${noteCol}18;color:${noteCol};border:1px solid ${noteCol}44;border-radius:4px;padding:2px 10px;font-size:11px;font-weight:700">${s.adminNote==="NEW ADMISSION"?"🆕":s.adminNote==="SPECIAL CASE"?"⭐":"📋"} ${s.adminNote}</span></div>
         </div>
-        <button onclick="adminEdit.id==='${s._id}'?adminCloseEdit():adminOpenEdit('${s._id}',true)"
+        <button onclick="adminEdit.id==='${s._id}'?ACE():AOE('${s._id}',true)"
           style="background:transparent;border:1px solid ${C.bdr};border-radius:5px;padding:5px 12px;font-size:11px;color:${C.mut};cursor:pointer">
           ${isEditing?"✕ Cancel":"✎ Edit"}
         </button>
@@ -1602,7 +1602,7 @@ function buildUI(){
                 :`<span style="color:${C.mut};font-style:italic">—</span>`}
             </td>
             <td style="white-space:nowrap">
-              <button onclick="adminEdit.id==='${r._id}'?adminCloseEdit():adminOpenEdit('${r._id}',${r.pU==='admin'||r.pU==='3rd'})"
+              <button onclick="adminEdit.id==='${r._id}'?ACE():AOE('${r._id}',${r.pU==='admin'||r.pU==='3rd'})"
                 style="background:none;border:1px solid ${C.teal};border-radius:4px;padding:3px 7px;font-size:11px;color:${C.teal};cursor:pointer;margin-right:4px">✏️ Edit</button>
               <button onclick="DS('${r._id}')" style="background:none;border:none;color:${C.red};font-size:15px;line-height:1;cursor:pointer">✕</button>
             </td>
