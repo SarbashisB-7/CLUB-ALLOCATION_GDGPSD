@@ -183,7 +183,9 @@ let adminEdit={
   overrideClub:false,// true = admin manually picks final club
   clubVal:"",actVal:"",
   noteVal:"",        // required public note
+  noteType:"",       // "NEW ADMISSION" | "SPECIAL CASE" | "" (free-form)
   showConfirm:false, // over-capacity confirm step
+  fromNewStudents:false, // opened from the New Students tab
 };
 
 // ── LISTENERS ─────────────────────────────────────────────────────────────────
@@ -271,19 +273,23 @@ async function updateName(fid, newName){
 }
 
 // ── ADMIN FULL EDIT ───────────────────────────────────────────────────────────
-function adminOpenEdit(fid){
+function adminOpenEdit(fid, fromNewStudents){
   if(!isAdmin||!fid) return;
   const s=students.find(x=>x._id===fid); if(!s) return;
   adminEdit={
     id:fid,
     name:s.name||"",grade:s.grade||"",section:s.section||"",
     p1:s.p1||"",a1:s.a1||"",p2:s.p2||"",a2:s.a2||"",p3:s.p3||"",a3:s.a3||"",
-    overrideClub:false,clubVal:s.aC||"",actVal:s.aA||"",
-    noteVal:"",showConfirm:false,
+    overrideClub:!!fromNewStudents,clubVal:s.aC||"",actVal:s.aA||"",
+    noteVal:s.adminNote||"",
+    noteType:fromNewStudents?(s.adminNote&&["NEW ADMISSION","SPECIAL CASE"].includes(s.adminNote)?s.adminNote:"NEW ADMISSION"):"",
+    showConfirm:false,
+    fromNewStudents:!!fromNewStudents,
   };
+  if(fromNewStudents&&!adminEdit.noteVal) adminEdit.noteVal="NEW ADMISSION";
   render();
 }
-function adminCloseEdit(){ adminEdit={id:null,name:"",grade:"",section:"",p1:"",a1:"",p2:"",a2:"",p3:"",a3:"",overrideClub:false,clubVal:"",actVal:"",noteVal:"",showConfirm:false}; render(); }
+function adminCloseEdit(){ adminEdit={id:null,name:"",grade:"",section:"",p1:"",a1:"",p2:"",a2:"",p3:"",a3:"",overrideClub:false,clubVal:"",actVal:"",noteVal:"",noteType:"",showConfirm:false,fromNewStudents:false}; render(); }
 
 async function adminSaveEdit(forceOverCap){
   if(!isAdmin||!adminEdit.id) return;
@@ -316,13 +322,15 @@ async function adminSaveEdit(forceOverCap){
     aC=al.aC; aA=al.aA; pU=al.pU; rsn=al.rsn;
   }
 
+  const finalNote = adminEdit.noteVal.trim();
   const updates={
     name:adminEdit.name.trim().toUpperCase(),
     grade:adminEdit.grade, section:adminEdit.section.trim().toUpperCase(),
     p1:adminEdit.p1,a1:adminEdit.a1,p2:adminEdit.p2,a2:adminEdit.a2,p3:adminEdit.p3,a3:adminEdit.a3,
     aC, aA, pU, rsn,
-    adminNote:adminEdit.noteVal.trim(),
-    adminNotePublic:true,
+    adminNote:finalNote,
+    adminNotePublic:adminEdit.fromNewStudents?true:true,
+    adminNoteType:adminEdit.noteType||"",
     adminEditAt:new Date().toISOString(),
   };
 
@@ -645,11 +653,26 @@ function buildAdminEditPanel(s){
     <!-- Row 4: Public note (required) -->
     <div style="margin-bottom:12px">
       <label class="lbl">PUBLIC NOTE <span style="color:${C.red}">*</span> <span style="color:${C.teal};font-weight:400">— visible to all in Class View &amp; Club View</span></label>
+      ${adminEdit.fromNewStudents?`
+      <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+        <button onclick="adminEdit.noteType='NEW ADMISSION';adminEdit.noteVal='NEW ADMISSION';render()" 
+          style="background:${adminEdit.noteType==='NEW ADMISSION'?C.teal:'transparent'};border:2px solid ${C.teal};border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;color:${adminEdit.noteType==='NEW ADMISSION'?'#fff':C.teal};cursor:pointer">
+          🆕 NEW ADMISSION
+        </button>
+        <button onclick="adminEdit.noteType='SPECIAL CASE';adminEdit.noteVal='SPECIAL CASE';render()"
+          style="background:${adminEdit.noteType==='SPECIAL CASE'?C.pur:'transparent'};border:2px solid ${C.pur};border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;color:${adminEdit.noteType==='SPECIAL CASE'?'#fff':C.pur};cursor:pointer">
+          ⭐ SPECIAL CASE
+        </button>
+      </div>
+      <div style="font-size:11px;color:${C.mut};margin-bottom:6px">Select a note type above, then add any additional detail below if needed:</div>`:""}
       <input value="${overCapNow&&!adminEdit.noteVal?"NEW ADMISSION: SPECIAL CASE":(adminEdit.noteVal||"").replace(/"/g,'&quot;')}"
-        oninput="adminEdit.noteVal=this.value"
-        placeholder="${overCapNow?"NEW ADMISSION: SPECIAL CASE":"Required — e.g. Transfer student · Parent request · Coordinator approval"}"
+        oninput="adminEdit.noteVal=this.value;adminEdit.noteType=(this.value==='NEW ADMISSION'||this.value==='SPECIAL CASE')?this.value:'custom';render()"
+        placeholder="${overCapNow?"NEW ADMISSION: SPECIAL CASE":adminEdit.fromNewStudents?"Select type above or type custom note":"Required — e.g. Transfer student · Parent request · Coordinator approval"}"
         style="border-color:${adminEdit.noteVal.trim()||overCapNow?C.teal:C.red}"/>
       ${!adminEdit.noteVal.trim()&&!overCapNow?`<div style="font-size:10px;color:${C.red};margin-top:3px">⚠ Note is required before saving</div>`:""}
+      ${adminEdit.fromNewStudents&&adminEdit.noteVal.trim()?`<div style="margin-top:6px;display:inline-flex;align-items:center;gap:6px;background:${adminEdit.noteType==='SPECIAL CASE'?C.pur:C.teal}18;border:1px solid ${adminEdit.noteType==='SPECIAL CASE'?C.pur:C.teal}44;border-radius:4px;padding:3px 10px;font-size:11px;color:${adminEdit.noteType==='SPECIAL CASE'?C.pur:C.teal}">
+        📋 Will appear publicly as: <b>${adminEdit.noteVal.trim()}</b>
+      </div>`:""}
     </div>
 
     <!-- Row 5: Over-cap confirm -->
@@ -758,7 +781,7 @@ function buildUI(){
   const usedGr=[...new Set(students.map(r=>r.grade))].sort((a,b)=>GRADES.indexOf(a)-GRADES.indexOf(b));
 
   const TABS=isAdmin
-    ?[["entry","📝 Entry"],["bulk","📤 Bulk"],["results","📊 Results"],["exports","📁 Export"],["capacity","🏫 Capacity"],["classview","🎓 Class View"],["clubview","🏅 Club View"],["access","🔐 Access"],["guide","📖 Guide"]]
+    ?[["entry","📝 Entry"],["bulk","📤 Bulk"],["results","📊 Results"],["newstudents","🆕 New Students"],["exports","📁 Export"],["capacity","🏫 Capacity"],["classview","🎓 Class View"],["clubview","🏅 Club View"],["access","🔐 Access"],["guide","📖 Guide"]]
     :[["entry","📝 Entry"],["classview","🎓 Class View"],["clubview","🏅 Club View"],["capacity","🏫 Live Capacity"],["guide","📖 Guide"]];
 
   const toastHTML=`<div style="position:fixed;top:14px;right:14px;z-index:999;display:flex;flex-direction:column;gap:8px;align-items:flex-end">
@@ -1100,6 +1123,7 @@ function buildUI(){
       {n:"06",c:C.red,t:"STATUS COLOUR GUIDE",pts:["🟢 GREEN = 1st preference honored","🔵 BLUE = 2nd preference used","🟡 AMBER = 3rd preference used","🟣 PURPLE = administratively allocated","🩵 TEAL = admin reassignment or Special Admission","✦ Special Admission = new student added to a full club, note shown publicly","🔴 RED row = unallocated — needs admin review","Admin: Results tab has full search, filter and delete"]},
       {n:"07",c:C.teal,t:"ADMIN FULL EDIT",pts:["Admin can fully edit any student record — name, grade, section, all 3 preferences, and final club","Click ✏️ Edit on any row in the Entry or Results tab (admin view only)","Preferences re-allocate automatically on save, or admin can override the final club directly","Over-capacity overrides mark the student as ✦ Special Admission — note auto-fills publicly","A public note is required for every admin save — it appears as a 📋 badge in Class View &amp; Club View","Original entry-teacher name and timestamp are preserved for full audit trail"]},
       {n:"08",c:C.pur,t:"ADMIN NOTES — PUBLIC & PRIVATE",pts:["Special Admission overrides auto-fill the note 'NEW ADMISSION: SPECIAL CASE' — shown publicly in all views","Public notes appear as a teal 📋 badge below the student's row in Class View and Club View","For regular reassignments, notes are private by default — only visible in the Results tab and Master CSV","Admin can toggle any note between 🌐 Public and 🔒 Private using the icon in the Results tab","Use for: parent requests, medical grounds, coordinator approvals, transfer students, etc."]},
+      {n:"09",c:C.teal,t:"🆕 NEW STUDENTS & SPECIAL PERMISSIONS",pts:["Use the '🆕 New Students' tab to review students who got 3rd preference or admin-allocated clubs","Click '✏️ Reassign Club' to open the admin edit panel for that student","Select 'NEW ADMISSION' for new joiners or 'SPECIAL CASE' for coordinator-approved exceptions","The note is automatically made public — visible as 🆕 or ⭐ badge in Class View &amp; Club View","Actioned students move to the 'ACTIONED' section — count shows pending vs done at a glance","All changes are audited with the admin edit timestamp for full transparency"]},
     ].map(card=>`<div class="card" style="border-left:3px solid ${card.c};padding:16px 18px">
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
         <span style="font-size:20px;font-weight:900;color:${card.c}">${card.n}</span>
@@ -1161,8 +1185,9 @@ function buildUI(){
         +'<span class="chip" style="background:#2F81F722;color:#2F81F7;border:1px solid #2F81F744">'+(s.section||"\u2014")+'</span>'
         +(canEdit?'<button data-action="editsec" data-id="'+s._id+'" style="background:none;border:1px solid #30363D;border-radius:4px;padding:2px 6px;font-size:11px;color:#8B949E;cursor:pointer" title="Edit section">\u270e</button>':"")
         +'</span>');
+    const noteCol=s.adminNote==="SPECIAL CASE"?C.pur:C.teal;
     const noteRow=s.adminNotePublic&&s.adminNote
-      ?'<tr><td></td><td colspan="8" style="padding:2px 12px 8px"><span style="font-size:11px;background:'+C.teal+'18;color:'+C.teal+';border:1px solid '+C.teal+'44;border-radius:4px;padding:3px 10px;display:inline-block">\ud83d\udccb '+s.adminNote+'</span></td></tr>'
+      ?'<tr><td></td><td colspan="8" style="padding:2px 12px 8px"><span style="font-size:11px;background:'+noteCol+'18;color:'+noteCol+';border:1px solid '+noteCol+'44;border-radius:4px;padding:3px 10px;display:inline-block">'+(s.adminNote==="NEW ADMISSION"?"\ud83c\udd95":s.adminNote==="SPECIAL CASE"?"\u2b50":"\ud83d\udccb")+' '+s.adminNote+'</span></td></tr>'
       :"";
     return '<tr style="'+((!s.aC)?'background:'+C.red+'0d':'')+((isDup)?';outline:1px solid '+C.red:'')+'">'
       +'<td style="color:'+C.mut+'">'+(i+1)+'</td>'
@@ -1278,8 +1303,9 @@ function buildUI(){
         +'<span class="chip" style="background:#2F81F722;color:#2F81F7;border:1px solid #2F81F744">'+(s.section||"\u2014")+'</span>'
         +(canEdit?'<button data-action="editsec" data-id="'+s._id+'" style="background:none;border:1px solid #30363D;border-radius:4px;padding:2px 5px;font-size:11px;color:#8B949E;cursor:pointer" title="Edit section">\u270e</button>':"")
         +'</span>');
+    const noteColCR=s.adminNote==="SPECIAL CASE"?C.pur:C.teal;
     const noteRow=s.adminNotePublic&&s.adminNote
-      ?'<tr><td></td><td colspan="6" style="padding:2px 12px 8px"><span style="font-size:11px;background:'+C.teal+'18;color:'+C.teal+';border:1px solid '+C.teal+'44;border-radius:4px;padding:3px 10px;display:inline-block">\ud83d\udccb '+s.adminNote+'</span></td></tr>'
+      ?'<tr><td></td><td colspan="6" style="padding:2px 12px 8px"><span style="font-size:11px;background:'+noteColCR+'18;color:'+noteColCR+';border:1px solid '+noteColCR+'44;border-radius:4px;padding:3px 10px;display:inline-block">'+(s.adminNote==="NEW ADMISSION"?"\ud83c\udd95":s.adminNote==="SPECIAL CASE"?"\u2b50":"\ud83d\udccb")+' '+s.adminNote+'</span></td></tr>'
       :"";
     return '<tr>'
       +'<td style="color:#8B949E">'+(i+1)+'</td>'
@@ -1391,10 +1417,89 @@ function buildUI(){
   ${unallocPanel}
   `;
 
+  // ── NEW STUDENTS & SPECIAL PERMISSIONS TAB (admin only) ─────────────────────
+  const nsStudents = students.filter(s => s.pU === "admin" || s.pU === "3rd");
+  const nsAlreadyActioned = nsStudents.filter(s => s.adminNote && ["NEW ADMISSION","SPECIAL CASE"].includes(s.adminNote));
+  const nsPending = nsStudents.filter(s => !s.adminNote || !["NEW ADMISSION","SPECIAL CASE"].includes(s.adminNote));
+
+  const newStudentsTab = `
+  <div class="card" style="border-left:4px solid ${C.teal};padding:16px 20px;margin-bottom:16px">
+    <div style="font-weight:700;font-size:15px;margin-bottom:4px;color:${C.teal}">🆕 New Students &amp; Special Permissions</div>
+    <div style="font-size:12px;color:${C.mut};margin-bottom:10px">Students who could not get their 1st or 2nd preference are listed here. Use this panel to reassign them to a suitable club and mark each with <b style="color:${C.teal}">NEW ADMISSION</b> or <b style="color:${C.pur}">SPECIAL CASE</b>. All changes are saved publicly and are visible in Class View &amp; Club View.</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <div style="background:${C.teal}15;border:1px solid ${C.teal}33;border-radius:6px;padding:10px 18px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:${C.teal}">${nsPending.length}</div>
+        <div style="font-size:10px;color:${C.mut};letter-spacing:.8px">PENDING REVIEW</div>
+      </div>
+      <div style="background:${C.grn}15;border:1px solid ${C.grn}33;border-radius:6px;padding:10px 18px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:${C.grn}">${nsAlreadyActioned.length}</div>
+        <div style="font-size:10px;color:${C.mut};letter-spacing:.8px">ACTIONED</div>
+      </div>
+      <div style="background:${C.card};border:1px solid ${C.bdr};border-radius:6px;padding:10px 18px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:${C.txt}">${nsStudents.length}</div>
+        <div style="font-size:10px;color:${C.mut};letter-spacing:.8px">TOTAL</div>
+      </div>
+    </div>
+  </div>
+  ${nsStudents.length===0?`<div class="card" style="text-align:center;padding:48px;color:${C.mut}">
+    <div style="font-size:36px;margin-bottom:10px">🎉</div>
+    <div style="font-size:14px;font-weight:700;margin-bottom:4px">All students got their 1st or 2nd preference!</div>
+    <div style="font-size:12px">No new students pending review.</div>
+  </div>`:`
+  ${nsPending.length>0?`<div style="font-size:11px;font-weight:700;color:${C.teal};letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid ${C.bdr}">PENDING REVIEW — ${nsPending.length} student${nsPending.length!==1?"s":""}</div>
+  ${nsPending.map(s=>{
+    const cl=gClub(s.aC), ac2=s.aA?gAct(s.aC,s.aA):null;
+    const isEditing=adminEdit.id===s._id;
+    return `<div class="card" style="margin-bottom:12px;border-left:3px solid ${s.pU==='3rd'?C.amb:C.pur}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-weight:700;font-size:14px;margin-bottom:4px">${s.name} ${chip(s.grade,C.acc)} <span style="color:${C.mut};font-size:11px">${s.section||""}</span></div>
+          <div style="font-size:12px;color:${C.mut};margin-bottom:4px">
+            Pref 1: ${chip(s.p1||"—",C.grn)} &nbsp;Pref 2: ${chip(s.p2||"—",C.amb)} &nbsp;Pref 3: ${chip(s.p3||"—",C.pur)}
+          </div>
+          <div style="font-size:12px">
+            Currently assigned: <b style="color:${cl?C.txt:C.red}">${cl?cl.id+": "+cl.name:"UNALLOCATED"}</b>${ac2?` · <span style="color:${C.mut}">${ac2.name}</span>`:""}
+            &nbsp;${chip(s.pU==="admin"?"Admin Allocated":s.pU==="3rd"?"3rd Preference":s.pU||"—",s.pU==="3rd"?C.amb:C.pur)}
+          </div>
+          <div style="font-size:11px;color:${C.mut};margin-top:3px">Entered by: ${s.by||"—"} · ${s.at?new Date(s.at).toLocaleString():"—"}</div>
+        </div>
+        <button onclick="adminEdit.id==='${s._id}'?adminCloseEdit():adminOpenEdit('${s._id}',true)"
+          style="background:${isEditing?C.bdr:C.teal};border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;white-space:nowrap">
+          ${isEditing?"✕ Cancel":"✏️ Reassign Club"}
+        </button>
+      </div>
+      ${isEditing?`<div style="margin-top:12px">${buildAdminEditPanel(s)}</div>`:""}
+    </div>`;
+  }).join("")}`:""}
+  ${nsAlreadyActioned.length>0?`<div style="font-size:11px;font-weight:700;color:${C.grn};letter-spacing:1px;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid ${C.bdr}">ACTIONED — ${nsAlreadyActioned.length} student${nsAlreadyActioned.length!==1?"s":""}</div>
+  ${nsAlreadyActioned.map(s=>{
+    const cl=gClub(s.aC), ac2=s.aA?gAct(s.aC,s.aA):null;
+    const isEditing=adminEdit.id===s._id;
+    const noteCol=s.adminNote==="SPECIAL CASE"?C.pur:C.teal;
+    return `<div class="card" style="margin-bottom:10px;border-left:3px solid ${C.grn};opacity:.9">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-weight:700;font-size:13px;margin-bottom:3px">${s.name} ${chip(s.grade,C.acc)} <span style="color:${C.mut};font-size:11px">${s.section||""}</span></div>
+          <div style="font-size:12px">
+            Club: <b>${cl?cl.id+": "+cl.name:"UNALLOCATED"}</b>${ac2?` · <span style="color:${C.mut}">${ac2.name}</span>`:""}
+          </div>
+          <div style="margin-top:5px"><span style="background:${noteCol}18;color:${noteCol};border:1px solid ${noteCol}44;border-radius:4px;padding:2px 10px;font-size:11px;font-weight:700">📋 ${s.adminNote}</span></div>
+        </div>
+        <button onclick="adminEdit.id==='${s._id}'?adminCloseEdit():adminOpenEdit('${s._id}',true)"
+          style="background:transparent;border:1px solid ${C.bdr};border-radius:5px;padding:5px 12px;font-size:11px;color:${C.mut};cursor:pointer">
+          ${isEditing?"✕ Cancel":"✎ Edit"}
+        </button>
+      </div>
+      ${isEditing?`<div style="margin-top:12px">${buildAdminEditPanel(s)}</div>`:""}
+    </div>`;
+  }).join("")}`:""}
+  `}`;
+
   const tabs={
     entry:entryTab,
     bulk:isAdmin?bulkTab:`<div class="card" style="text-align:center;padding:40px;color:${C.mut}">Admin access required</div>`,
     results:isAdmin?resultsTab:`<div class="card" style="text-align:center;padding:40px;color:${C.mut}">Admin access required</div>`,
+    newstudents:isAdmin?newStudentsTab:`<div class="card" style="text-align:center;padding:40px;color:${C.mut}">Admin access required</div>`,
     exports:isAdmin?exportsTab:`<div class="card" style="text-align:center;padding:40px;color:${C.mut}">Admin access required</div>`,
     capacity:capacityTab,
     classview:classViewTab,
@@ -1474,7 +1579,7 @@ window.DLT  = ()=>dlCSV("Template_GDGoenka.csv",[
   `"Aarav Sharma","VI","A","B1","","B3","","B5","B5-Eco","Ms. Das"`,
   `"Priya Roy","VII","B","B7","B7-Western","B6","B6-Yoga","B2","B2-Debate","Mr. Sen"`
 ]);
-window.AOE  = adminOpenEdit;
+window.AOE  = (fid, fromNS) => adminOpenEdit(fid, fromNS);
 window.ACE  = adminCloseEdit;
 window.ASE  = adminSaveEdit;
 window.UAN  = updateAdminNote;
