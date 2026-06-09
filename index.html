@@ -210,11 +210,18 @@ onSnapshot(SCFG,snap=>{
   render();
 });
 
-// ── ATTENDANCE LISTENER ───────────────────────────────────────────────────────
-onSnapshot(query(ATTCOL,orderBy("savedAt","desc")),snap=>{
-  attRecords=snap.docs.map(d=>({...d.data(),_id:d.id}));
-  render();
-},e=>toast("Attendance DB error: "+e.message,C.red));
+// ── ATTENDANCE LISTENER — lazy (only starts when Attendance tab is opened) ────
+let attUnsubscribe = null; // holds the unsubscribe function when listener is active
+let attLoaded = false;     // true once the listener has been started
+
+function startAttendanceListener(){
+  if(attUnsubscribe) return; // already running
+  attUnsubscribe = onSnapshot(query(ATTCOL,orderBy("savedAt","desc")),snap=>{
+    attRecords=snap.docs.map(d=>({...d.data(),_id:d.id}));
+    render();
+  },e=>toast("Attendance DB error: "+e.message,C.red));
+  attLoaded = true;
+}
 
 // ── TOAST ─────────────────────────────────────────────────────────────────────
 function toast(msg,col=C.grn,sub=""){
@@ -742,6 +749,7 @@ function loadAttMarks(clubId, actId, date){
 
 async function saveAttendance(){
   if(!attClub||!attDate) return;
+  startAttendanceListener(); // ensure listener is running
   const mem = attMembers();
   if(!mem.length){ toast("No students in this club/activity to save.",C.amb); return; }
   const id = attDocId(attClub, attAct, attDate);
@@ -839,6 +847,14 @@ async function deleteAttendance(id){
 }
 
 function buildAttendanceTab(){
+  // Show a brief loading indicator if the listener hasn't returned data yet
+  if(!attLoaded){
+    return `<div class="card" style="text-align:center;padding:60px;color:${C.mut}">
+      <div style="font-size:32px;margin-bottom:12px">📋</div>
+      <div style="font-weight:700;font-size:14px;margin-bottom:6px;color:${C.txt}">Loading Attendance Data…</div>
+      <div style="font-size:12px">Connecting to database — this only happens once per session</div>
+    </div>`;
+  }
   const cl = attClub ? gClub(attClub) : null;
   const act = (attClub && attAct) ? gAct(attClub, attAct) : null;
   const mem = attMembers();
@@ -2001,7 +2017,7 @@ function exportClassViewCSV(grFilter,secFilter){
 }
 
 // ── GLOBALS ───────────────────────────────────────────────────────────────────
-window.ST   = v=>{ tab=v; render(); };
+window.ST   = v=>{ tab=v; if(v==="attendance") startAttendanceListener(); render(); };
 window.SF   = (k,v)=>{ form[k]=v; };
 window.SFR  = (k,v)=>{ form[k]=v; render(); };
 window.SP   = (pk,ak,v)=>{ form={...form,[pk]:v,[ak]:""}; render(); };
