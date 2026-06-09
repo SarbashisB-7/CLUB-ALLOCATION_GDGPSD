@@ -866,7 +866,7 @@ function buildAttendanceTab(){
     const histClubs = [...new Set(attRecords.map(r=>r.clubId))];
     const filtRecs = attRecords.filter(r=>{
       if(attViewClub && r.clubId!==attViewClub) return false;
-      if(attViewDate && r.date!==attViewDate) return false;
+      if(attViewDate && attViewDate.split('-')[0]!=='0' && r.date!==attViewDate) return false;
       return true;
     });
     return `
@@ -884,7 +884,20 @@ function buildAttendanceTab(){
         <option value="">All Clubs</option>
         ${[...new Set(attRecords.map(r=>r.clubId))].map(cid=>{const c=gClub(cid);return `<option value="${cid}"${attViewClub===cid?" selected":""}>${cid}: ${c?c.name:cid}</option>`;}).join("")}
       </select>
-      <input type="date" value="${attViewDate}" onchange="attViewDate=this.value;render()" style="width:160px"/>
+      <div style="display:flex;gap:5px;align-items:center">
+        <select onchange="(function(v){var p=(attViewDate||'2026-06-01').split('-');attViewDate=p[0]+'-'+p[1]+'-'+('0'+v).slice(-2);render();})(this.value)" style="width:60px;font-size:12px">
+          <option value="0"${!attViewDate?' selected':''}>DD</option>
+          ${Array.from({length:31},(_,i)=>i+1).map(d=>`<option value="${d}"${attViewDate&&parseInt(attViewDate.split('-')[2])===d?' selected':''}>${String(d).padStart(2,'0')}</option>`).join('')}
+        </select>
+        <select onchange="(function(v){var p=(attViewDate||'2026-06-01').split('-');attViewDate=p[0]+'-'+('0'+v).slice(-2)+'-'+p[2];render();})(this.value)" style="width:68px;font-size:12px">
+          <option value="0"${!attViewDate?' selected':''}>MM</option>
+          ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m,i)=>`<option value="${i+1}"${attViewDate&&parseInt(attViewDate.split('-')[1])===i+1?' selected':''}>${m}</option>`).join('')}
+        </select>
+        <select onchange="(function(v){var p=(attViewDate||'2026-06-01').split('-');attViewDate=v+'-'+p[1]+'-'+p[2];render();})(this.value)" style="width:75px;font-size:12px">
+          <option value="0"${!attViewDate?' selected':''}>YYYY</option>
+          ${Array.from({length:5},(_,i)=>2025+i).map(y=>`<option value="${y}"${attViewDate&&parseInt(attViewDate.split('-')[0])===y?' selected':''}>${y}</option>`).join('')}
+        </select>
+      </div>
       <span style="font-size:12px;color:${C.mut}">${filtRecs.length} record${filtRecs.length!==1?"s":""} shown</span>
       ${attViewClub||attViewDate?`<button class="btnO" onclick="attViewClub='';attViewDate='';render()" style="font-size:11px;padding:5px 10px">✕ Clear filters</button>`:""}
     </div>
@@ -954,7 +967,17 @@ function buildAttendanceTab(){
       </div>`:""}
       <div>
         <label class="lbl">DATE *</label>
-        <input type="date" value="${attDate}" onchange="attDate=this.value;attMarks={};attSaved=false;if(attClub&&attDate)loadAttMarks(attClub,attAct,attDate);render()" style="border-color:${C.grn}"/>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+          <select onchange="(function(v){var p=attDate.split('-');attDate=p[0]+'-'+p[1]+'-'+('0'+v).slice(-2);attMarks={};attSaved=false;if(attClub&&attDate)loadAttMarks(attClub,attAct,attDate);render();})(this.value)" style="border-color:${C.grn}">
+            ${Array.from({length:31},(_,i)=>i+1).map(d=>`<option value="${d}"${parseInt(attDate.split('-')[2])===d?' selected':''}>${String(d).padStart(2,'0')}</option>`).join('')}
+          </select>
+          <select onchange="(function(v){var p=attDate.split('-');attDate=p[0]+'-'+('0'+v).slice(-2)+'-'+p[2];attMarks={};attSaved=false;if(attClub&&attDate)loadAttMarks(attClub,attAct,attDate);render();})(this.value)" style="border-color:${C.grn}">
+            ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m,i)=>`<option value="${i+1}"${parseInt(attDate.split('-')[1])===i+1?' selected':''}>${m}</option>`).join('')}
+          </select>
+          <select onchange="(function(v){var p=attDate.split('-');attDate=v+'-'+p[1]+'-'+p[2];attMarks={};attSaved=false;if(attClub&&attDate)loadAttMarks(attClub,attAct,attDate);render();})(this.value)" style="border-color:${C.grn}">
+            ${Array.from({length:5},(_,i)=>2025+i).map(y=>`<option value="${y}"${parseInt(attDate.split('-')[0])===y?' selected':''}>${y}</option>`).join('')}
+          </select>
+        </div>
       </div>
       ${teacher.by?"":
         `<div>
