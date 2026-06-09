@@ -52,6 +52,7 @@ const app = initializeApp({
 const db  = getFirestore(app);
 const COL = collection(db,"students");
 const SCFG = doc(db,"config","segments");
+const ATTCOL = collection(db,"attendance");
 
 // ── CLUBS ────────────────────────────────────────────────────────────────────
 const CLUBS={
@@ -164,6 +165,16 @@ function allocate(s,cc,ac){
 let students  = [];
 let segAccess = {A:false,B:false,C:false};
 let tab="entry", toasts=[];
+// ── ATTENDANCE STATE ──────────────────────────────────────────────────────────
+let attRecords = [];   // all saved attendance docs from Firestore
+let attClub    = "";   // selected club id
+let attAct     = "";   // selected activity id (if sub-club)
+let attDate    = (()=>{ const d=new Date(); const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),dd=String(d.getDate()).padStart(2,"0"); return `${y}-${m}-${dd}`; })();
+let attMarks   = {};   // { studentId: "P" | "A" }
+let attSaved   = false;
+let attViewDate= "";   // for "view past" filter
+let attViewClub= "";   // for "view past" filter
+let attSubTab  = "mark"; // "mark" | "history"
 // Restore teacher identity from localStorage so edits work after refresh
 let teacher={
   by:  localStorage.getItem("gdg_teacher_by")  ||"",
@@ -198,6 +209,12 @@ onSnapshot(SCFG,snap=>{
   segAccess=snap.exists()?{A:false,B:false,C:false,...snap.data()}:{A:false,B:false,C:false};
   render();
 });
+
+// ── ATTENDANCE LISTENER ───────────────────────────────────────────────────────
+onSnapshot(query(ATTCOL,orderBy("savedAt","desc")),snap=>{
+  attRecords=snap.docs.map(d=>({...d.data(),_id:d.id}));
+  render();
+},e=>toast("Attendance DB error: "+e.message,C.red));
 
 // ── TOAST ─────────────────────────────────────────────────────────────────────
 function toast(msg,col=C.grn,sub=""){
@@ -698,7 +715,314 @@ function buildAdminEditPanel(s){
 }
 
 
-// ── BUILD UI ──────────────────────────────────────────────────────────────────
+// ── ATTENDANCE HELPERS ────────────────────────────────────────────────────────
+function attMembers(){
+  // Returns sorted students for the selected club/activity
+  if(!attClub) return [];
+  let mem = sortStudents(students.filter(s=>s.aC===attClub));
+  if(attAct) mem = mem.filter(s=>s.aA===attAct);
+  return mem;
+}
+
+function attDocId(clubId, actId, date){
+  return (actId ? clubId+"_"+actId : clubId) + "_" + date;
+}
+
+function loadAttMarks(clubId, actId, date){
+  const id = attDocId(clubId, actId, date);
+  const rec = attRecords.find(r=>r._id===id);
+  if(rec && rec.marks){
+    attMarks = {...rec.marks};
+    attSaved = true;
+  } else {
+    attMarks = {};
+    attSaved = false;
+  }
+}
+
+async function saveAttendance(){
+  if(!attClub||!attDate) return;
+  const mem = attMembers();
+  if(!mem.length){ toast("No students in this club/activity to save.",C.amb); return; }
+  const id = attDocId(attClub, attAct, attDate);
+  const cl = gClub(attClub);
+  const act = attAct ? gAct(attClub, attAct) : null;
+  const marks = {};
+  mem.forEach(s=>{ marks[s._id] = attMarks[s._id]||"A"; });
+  const present = Object.values(marks).filter(v=>v==="P").length;
+  const absent  = Object.values(marks).filter(v=>v==="A").length;
+  const payload = {
+    clubId:attClub, clubName:cl?cl.name:"",
+    actId:attAct||"", actName:act?act.name:"",
+    date:attDate, marks, present, absent, total:mem.length,
+    savedBy: teacher.by||"Unknown",
+    savedAt: new Date().toISOString()
+  };
+  try{
+    await setDoc(doc(db,"attendance",id), payload);
+    attSaved = true;
+    toast(`✅ Attendance saved — ${present}P / ${absent}A`,C.grn,`${cl?.name}${act?" · "+act.name:""} · ${attDate}`);
+    // Update local attRecords immediately so download button appears before Firestore snapshot fires
+    const existing = attRecords.findIndex(r=>r._id===id);
+    if(existing>=0) attRecords[existing]={...payload,_id:id};
+    else attRecords.unshift({...payload,_id:id});
+    render();
+  } catch(e){ toast("Save failed: "+e.message,C.red); }
+}
+
+function downloadAttendanceXLSX(rec){
+  // rec: an attendance record object from Firestore (or current session)
+  const cl = gClub(rec.clubId);
+  const act = rec.actId ? gAct(rec.clubId, rec.actId) : null;
+  const clubLabel = cl ? cl.name : rec.clubName || rec.clubId;
+  const actLabel  = act ? act.name : rec.actName || "";
+  const displayName = actLabel ? `${clubLabel} – ${actLabel}` : clubLabel;
+
+  // Get members for this club/act ordered
+  let mem = sortStudents(students.filter(s=>s.aC===rec.clubId));
+  if(rec.actId) mem = mem.filter(s=>s.aA===rec.actId);
+
+  const wb = XLSX.utils.book_new();
+  const ws = {};
+
+  // Row 1: School name (merged A1:D1)
+  ws["A1"] = { v:"G D GOENKA SCHOOL DAKSHINESWAR", t:"s",
+    s:{font:{bold:true,sz:13},alignment:{horizontal:"center",vertical:"center"}} };
+  // Row 2: Club name
+  ws["A2"] = { v:"NAME OF CLUB: "+displayName, t:"s", s:{font:{bold:true}} };
+  // Row 3: Date
+  const [yr,mo,dy] = rec.date.split("-");
+  const dateStr = `${dy}/${mo}/${yr}`;
+  ws["A3"] = { v:"DATE: "+dateStr, t:"s", s:{font:{bold:true}} };
+  // Row 4: blank
+  ws["A4"] = { v:"", t:"s" };
+  // Row 5: Headers
+  const hdrs = ["SR NO","NAME OF STUDENT","CLASS-SEC","P/A"];
+  hdrs.forEach((h,i)=>{
+    const addr = XLSX.utils.encode_cell({r:4,c:i});
+    ws[addr] = {v:h, t:"s", s:{font:{bold:true},alignment:{horizontal:"center"}}};
+  });
+  // Data rows
+  mem.forEach((s,i)=>{
+    const r = 5+i;
+    ws[XLSX.utils.encode_cell({r,c:0})] = {v:i+1, t:"n"};
+    ws[XLSX.utils.encode_cell({r,c:1})] = {v:s.name, t:"s"};
+    ws[XLSX.utils.encode_cell({r,c:2})] = {v:`${s.grade}-${s.section||""}`.replace(/-$/,""), t:"s"};
+    ws[XLSX.utils.encode_cell({r,c:3})] = {v:rec.marks&&rec.marks[s._id]?rec.marks[s._id]:"A", t:"s"};
+  });
+  // Set sheet range
+  ws["!ref"] = XLSX.utils.encode_range({s:{r:0,c:0},e:{r:4+mem.length,c:3}});
+  // Column widths
+  ws["!cols"] = [{wch:8},{wch:32},{wch:12},{wch:8}];
+  // Merge header rows A1:D1, A2:D2, A3:D3
+  ws["!merges"] = [
+    {s:{r:0,c:0},e:{r:0,c:3}},
+    {s:{r:1,c:0},e:{r:1,c:3}},
+    {s:{r:2,c:0},e:{r:2,c:3}},
+    {s:{r:3,c:0},e:{r:3,c:3}},
+  ];
+  XLSX.utils.book_append_sheet(wb, ws, "Attendance");
+  const fname = `Attendance_${(actLabel||clubLabel).replace(/[^a-zA-Z0-9]/g,"_")}_${rec.date}.xlsx`;
+  xlsxDL(wb, fname);
+  toast(`✓ Attendance sheet downloaded`,C.grn);
+}
+
+// ── BUILD ATTENDANCE TAB ──────────────────────────────────────────────────────
+function buildAttendanceTab(){
+  const cl = attClub ? gClub(attClub) : null;
+  const act = (attClub && attAct) ? gAct(attClub, attAct) : null;
+  const mem = attMembers();
+  const docId = attClub && attDate ? attDocId(attClub, attAct, attDate) : null;
+  const existingRec = docId ? attRecords.find(r=>r._id===docId) : null;
+
+  // ── History sub-tab ───────────────────────────────────────────────────────
+  if(attSubTab==="history"){
+    const histClubs = [...new Set(attRecords.map(r=>r.clubId))];
+    const filtRecs = attRecords.filter(r=>{
+      if(attViewClub && r.clubId!==attViewClub) return false;
+      if(attViewDate && r.date!==attViewDate) return false;
+      return true;
+    });
+    return `
+    <div class="card" style="border-left:4px solid ${C.pur};padding:16px 20px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-weight:700;font-size:15px;margin-bottom:3px;color:${C.pur}">📅 Attendance History</div>
+          <div style="font-size:12px;color:${C.mut}">${attRecords.length} session${attRecords.length!==1?"s":""} recorded in total</div>
+        </div>
+        <button onclick="attSubTab='mark';render()" class="btn" style="background:${C.acc}">✏️ Mark Attendance</button>
+      </div>
+    </div>
+    <div class="card" style="padding:12px 16px;margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <select style="width:220px" onchange="attViewClub=this.value;render()">
+        <option value="">All Clubs</option>
+        ${[...new Set(attRecords.map(r=>r.clubId))].map(cid=>{const c=gClub(cid);return `<option value="${cid}"${attViewClub===cid?" selected":""}>${cid}: ${c?c.name:cid}</option>`;}).join("")}
+      </select>
+      <input type="date" value="${attViewDate}" onchange="attViewDate=this.value;render()" style="width:160px"/>
+      <span style="font-size:12px;color:${C.mut}">${filtRecs.length} record${filtRecs.length!==1?"s":""} shown</span>
+      ${attViewClub||attViewDate?`<button class="btnO" onclick="attViewClub='';attViewDate='';render()" style="font-size:11px;padding:5px 10px">✕ Clear filters</button>`:""}
+    </div>
+    ${filtRecs.length===0?`<div class="card" style="text-align:center;padding:48px;color:${C.mut}"><div style="font-size:32px;margin-bottom:10px">📋</div><div>No attendance records found${attViewClub||attViewDate?" for this filter":""}</div></div>`
+    :filtRecs.map(rec=>{
+      const c2=gClub(rec.clubId), a2=rec.actId?gAct(rec.clubId,rec.actId):null;
+      const [yr,mo,dy]=rec.date.split("-");
+      return `<div class="card" style="margin-bottom:12px;padding:14px 18px;border-left:3px solid ${C.pur}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+          <div>
+            <div style="font-weight:700;font-size:13px">${c2?c2.id+": "+c2.name:rec.clubId}${a2?" · <span style='color:"+C.mut+"'>"+a2.name+"</span>":""}</div>
+            <div style="font-size:12px;color:${C.mut};margin-top:3px">${dy}/${mo}/${yr} &nbsp;·&nbsp; ${rec.present}P / ${rec.absent}A out of ${rec.total} &nbsp;·&nbsp; Saved by ${rec.savedBy||"—"}</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn" onclick="attClub='${rec.clubId}';attAct='${rec.actId||""}';attDate='${rec.date}';loadAttMarks('${rec.clubId}','${rec.actId||""}','${rec.date}');attSubTab='mark';render()" style="background:${C.teal};font-size:11px;padding:5px 12px">✏️ Edit</button>
+            <button class="btn" onclick="DLATT('${rec._id}')" style="background:${C.grn};font-size:11px;padding:5px 12px">⬇ Excel</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span class="chip" style="background:${C.grn}22;color:${C.grn};border:1px solid ${C.grn}44">✓ Present: ${rec.present}</span>
+          <span class="chip" style="background:${C.red}22;color:${C.red};border:1px solid ${C.red}44">✗ Absent: ${rec.absent}</span>
+          <span class="chip" style="background:${C.acc}22;color:${C.acc};border:1px solid ${C.acc}44">Total: ${rec.total}</span>
+          <span class="chip" style="background:${C.pur}22;color:${C.pur};border:1px solid ${C.pur}44">${Math.round((rec.present/rec.total)*100)||0}% present</span>
+        </div>
+      </div>`; }).join("")}`;
+  }
+
+  // ── Mark attendance sub-tab ───────────────────────────────────────────────
+  // Determine which clubs to show: all clubs (for club heads / admin)
+  // Teacher sees all clubs (they are club heads too)
+  const allClubsFlat = ALL;
+
+  const pCount = mem.filter(s=>attMarks[s._id]==="P").length;
+  const aCount = mem.filter(s=>attMarks[s._id]==="A").length;
+  const totalMarked = mem.filter(s=>attMarks[s._id]).length;
+
+  return `
+  <div class="card" style="border-left:4px solid ${C.grn};padding:16px 20px;margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:3px;color:${C.grn}">📋 Mark Club Attendance</div>
+        <div style="font-size:12px;color:${C.mut}">Select a club and date, mark each student Present or Absent, then save & download.</div>
+      </div>
+      <button onclick="attSubTab='history';render()" class="btnO" style="font-size:12px">📅 View History (${attRecords.length})</button>
+    </div>
+  </div>
+
+  <!-- Club / Date selector -->
+  <div class="card" style="padding:14px 18px;margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:${cl?.acts&&!attAct?"12px":"0"}">
+      <div>
+        <label class="lbl">CLUB *</label>
+        <select onchange="attClub=this.value;attAct='';attMarks={};attSaved=false;if(attClub&&attDate)loadAttMarks(attClub,attAct,attDate);render()">
+          <option value="">— Select Club —</option>
+          ${["A","B","C"].map(sg=>`<optgroup label="Segment ${sg}">
+            ${CLUBS[sg].map(c=>`<option value="${c.id}"${attClub===c.id?" selected":""}>${c.id}: ${c.name}</option>`).join("")}
+          </optgroup>`).join("")}
+        </select>
+      </div>
+      ${cl?.acts?`<div>
+        <label class="lbl">SUB-CLUB / ACTIVITY</label>
+        <select onchange="attAct=this.value;attMarks={};attSaved=false;if(attClub&&attDate)loadAttMarks(attClub,attAct,attDate);render()">
+          <option value="">All Members (whole club)</option>
+          ${cl.acts.map(a=>`<option value="${a.id}"${attAct===a.id?" selected":""}>${a.name}</option>`).join("")}
+        </select>
+      </div>`:""}
+      <div>
+        <label class="lbl">DATE *</label>
+        <input type="date" value="${attDate}" onchange="attDate=this.value;attMarks={};attSaved=false;if(attClub&&attDate)loadAttMarks(attClub,attAct,attDate);render()" style="border-color:${C.grn}"/>
+      </div>
+      ${teacher.by?"":
+        `<div>
+          <label class="lbl">YOUR NAME (Club Head) *</label>
+          <input value="${teacher.by}" oninput="Tby(this.value.toUpperCase())" onblur="TbyR(this.value.toUpperCase())" placeholder="MS. BANERJEE" style="text-transform:uppercase"/>
+        </div>`
+      }
+    </div>
+    ${cl?.acts&&!attAct?`<div style="font-size:11px;color:${C.amb};margin-top:6px">⚠ No sub-club selected — showing all members of ${cl.name}. Select a sub-club above to filter.</div>`:""}
+  </div>
+
+  ${!attClub||!attDate?`<div class="card" style="text-align:center;padding:48px;color:${C.mut}"><div style="font-size:36px;margin-bottom:10px">📋</div><div>Select a club and date above to begin marking attendance</div></div>`:
+  mem.length===0?`<div class="card" style="text-align:center;padding:40px;color:${C.red}"><div style="font-size:32px;margin-bottom:10px">⚠</div><div>No students are allocated to <b>${cl?.name||attClub}</b>${act?" · "+act.name:""}.<br>Students must be enrolled in the Club Allocation system first.</div></div>`:`
+
+  <!-- Summary bar -->
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+    <div style="background:${C.card};border:1px solid ${C.bdr};border-radius:8px;padding:10px 18px;display:flex;gap:6px;align-items:center">
+      <span style="font-size:20px;font-weight:800;color:${C.grn}">${pCount}</span>
+      <span style="font-size:11px;color:${C.mut};letter-spacing:.5px">PRESENT</span>
+    </div>
+    <div style="background:${C.card};border:1px solid ${C.bdr};border-radius:8px;padding:10px 18px;display:flex;gap:6px;align-items:center">
+      <span style="font-size:20px;font-weight:800;color:${C.red}">${aCount}</span>
+      <span style="font-size:11px;color:${C.mut};letter-spacing:.5px">ABSENT</span>
+    </div>
+    <div style="background:${C.card};border:1px solid ${C.bdr};border-radius:8px;padding:10px 18px;display:flex;gap:6px;align-items:center">
+      <span style="font-size:20px;font-weight:800;color:${C.mut}">${mem.length-totalMarked}</span>
+      <span style="font-size:11px;color:${C.mut};letter-spacing:.5px">UNMARKED</span>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" onclick="const m={};attMembers().forEach(s=>{m[s._id]='P';});attMarks=m;render()" style="background:${C.grn};font-size:12px">✓ Mark All Present</button>
+      <button class="btn" onclick="const m={};attMembers().forEach(s=>{m[s._id]='A';});attMarks=m;render()" style="background:${C.red};font-size:12px">✗ Mark All Absent</button>
+      <button class="btnO" onclick="attMarks={};attSaved=false;render()" style="font-size:12px">↺ Reset</button>
+    </div>
+  </div>
+
+  ${existingRec?`<div style="background:${C.teal}15;border:1px solid ${C.teal}33;border-radius:6px;padding:9px 14px;margin-bottom:12px;font-size:12px;color:${C.teal}">
+    📋 Attendance already saved for this date — you are editing the existing record. Changes will overwrite the previous save.
+  </div>`:""}
+
+  <!-- Student list -->
+  <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px">
+    <div style="background:${C.hd};border-bottom:1px solid ${C.bdr};padding:10px 18px;font-size:11px;font-weight:700;color:${C.mut};letter-spacing:1px;display:flex;gap:8px;align-items:center">
+      <span>${cl?.id}: ${cl?.name}${act?" · "+act.name:""}</span>
+      <span>·</span>
+      <span>${mem.length} students</span>
+      <span>·</span>
+      <span style="color:${C.grn}">${pCount} present</span>
+      <span>·</span>
+      <span style="color:${C.red}">${aCount} absent</span>
+    </div>
+    <div style="overflow-x:auto"><table>
+      <thead><tr>
+        <th style="width:40px">#</th>
+        <th>NAME OF STUDENT</th>
+        <th>CLASS-SEC</th>
+        <th style="width:160px;text-align:center">ATTENDANCE</th>
+      </tr></thead>
+      <tbody>
+        ${mem.map((s,i)=>{
+          const mark = attMarks[s._id]||"";
+          const isP = mark==="P", isA = mark==="A";
+          return `<tr style="background:${isP?C.grn+"0a":isA?C.red+"0a":""}">
+            <td style="color:${C.mut}">${i+1}</td>
+            <td style="font-weight:600">${s.name}</td>
+            <td>${chip(`${s.grade}-${s.section||""}`.replace(/-$/,""),C.acc)}</td>
+            <td style="text-align:center">
+              <div style="display:inline-flex;gap:6px">
+                <button onclick="attMarks['${s._id}']='P';render()"
+                  style="border:2px solid ${isP?C.grn:C.bdr};background:${isP?C.grn:"transparent"};color:${isP?"#fff":C.mut};border-radius:6px;padding:4px 14px;font-size:12px;font-weight:700;cursor:pointer">P</button>
+                <button onclick="attMarks['${s._id}']='A';render()"
+                  style="border:2px solid ${isA?C.red:C.bdr};background:${isA?C.red:"transparent"};color:${isA?"#fff":C.mut};border-radius:6px;padding:4px 14px;font-size:12px;font-weight:700;cursor:pointer">A</button>
+              </div>
+            </td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- Save & Download bar -->
+  <div class="card" style="padding:14px 18px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+    <div style="font-size:12px;color:${C.mut}">
+      ${totalMarked<mem.length?`<span style="color:${C.amb}">⚠ ${mem.length-totalMarked} student${mem.length-totalMarked!==1?"s":""} not yet marked — unmarked students will be saved as <b>Absent</b></span>`:`<span style="color:${C.grn}">✓ All ${mem.length} students marked</span>`}
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      ${attSaved&&existingRec?`<button class="btn" onclick="DLATT('${existingRec._id}')" style="background:${C.pur};font-size:12px">⬇ Download Excel (.xlsx)</button>`:""}
+      <button class="btn" onclick="saveAttendance()" style="background:${C.grn};font-size:13px;padding:9px 24px" ${!attClub||!attDate||!teacher.by?"disabled":""}>
+        💾 Save Attendance
+      </button>
+    </div>
+  </div>
+  <!-- Hidden payload removed — using attRecords lookup -->
+  `}`;
+}
+
 function render(){
   document.getElementById("root").innerHTML=buildUI();
   // Re-attach delegated click handler on every render (covers Firebase-triggered re-renders too)
@@ -790,8 +1114,8 @@ function buildUI(){
   const usedGr=[...new Set(students.map(r=>r.grade))].sort((a,b)=>GRADES.indexOf(a)-GRADES.indexOf(b));
 
   const TABS=isAdmin
-    ?[["entry","📝 Entry"],["bulk","📤 Bulk"],["results","📊 Results"],["newstudents","🆕 New Students"],["search","🔍 Search"],["exports","📁 Export"],["capacity","🏫 Capacity"],["classview","🎓 Class View"],["clubview","🏅 Club View"],["access","🔐 Access"],["guide","📖 Guide"]]
-    :[["entry","📝 Entry"],["classview","🎓 Class View"],["clubview","🏅 Club View"],["capacity","🏫 Live Capacity"],["guide","📖 Guide"]];
+    ?[["entry","📝 Entry"],["bulk","📤 Bulk"],["results","📊 Results"],["newstudents","🆕 New Students"],["search","🔍 Search"],["exports","📁 Export"],["capacity","🏫 Capacity"],["classview","🎓 Class View"],["clubview","🏅 Club View"],["attendance","📋 Attendance"],["access","🔐 Access"],["guide","📖 Guide"]]
+    :[["entry","📝 Entry"],["classview","🎓 Class View"],["clubview","🏅 Club View"],["capacity","🏫 Live Capacity"],["attendance","📋 Attendance"],["guide","📖 Guide"]];
 
   const toastHTML=`<div style="position:fixed;top:14px;right:14px;z-index:999;display:flex;flex-direction:column;gap:8px;align-items:flex-end">
     ${toasts.map(t=>`<div style="background:${t.col};color:#fff;border-radius:8px;padding:10px 16px;font-size:12px;font-weight:600;animation:slideIn .25s ease;box-shadow:0 4px 20px ${t.col}55;max-width:340px"><div>${t.msg}</div>${t.sub?`<div style="font-size:10px;opacity:.85;margin-top:3px">${t.sub}</div>`:""}</div>`).join("")}
@@ -1624,6 +1948,7 @@ function buildUI(){
     capacity:capacityTab,
     classview:classViewTab,
     clubview:clubViewTab,
+    attendance:buildAttendanceTab(),
     access:isAdmin?accessTab:`<div class="card" style="text-align:center;padding:40px;color:${C.mut}">Admin access required</div>`,
     guide:guideTab
   };
@@ -1674,6 +1999,12 @@ window.TbyR = v=>{ teacher.by=v; localStorage.setItem("gdg_teacher_by",v); rende
 window.Tsc  = v=>{ teacher.sec=v; localStorage.setItem("gdg_teacher_sec",v); };
 window.TscR = v=>{ teacher.sec=v; localStorage.setItem("gdg_teacher_sec",v); render(); };
 window.Tgr  = v=>{ teacher.grade=v; localStorage.setItem("gdg_teacher_gr",v); form={name:form.name,p1:"",a1:"",p2:"",a2:"",p3:"",a3:""}; render(); };
+// Attendance globals
+window.saveAttendance=saveAttendance;
+window.downloadAttendanceXLSX=downloadAttendanceXLSX;
+window.loadAttMarks=loadAttMarks;
+window.attMembers=attMembers;
+window.DLATT = function(id){ const rec=attRecords.find(r=>r._id===id); if(rec) downloadAttendanceXLSX(rec); else toast("Record not found",C.red); };
 window.AS   = addStudent;
 window.DS   = delStudent;
 window.DOE  = delOwnEntry;
@@ -1729,6 +2060,15 @@ Object.defineProperties(window,{
   adminEdit:{get:()=>adminEdit,set:v=>{adminEdit=v;}},
   searchQ:{get:()=>searchQ,set:v=>{searchQ=v;}},
   nsQ:{get:()=>nsQ,set:v=>{nsQ=v;}},
+  // Attendance
+  attClub:{get:()=>attClub,set:v=>{attClub=v;}},
+  attAct:{get:()=>attAct,set:v=>{attAct=v;}},
+  attDate:{get:()=>attDate,set:v=>{attDate=v;}},
+  attMarks:{get:()=>attMarks,set:v=>{attMarks=v;}},
+  attSaved:{get:()=>attSaved,set:v=>{attSaved=v;}},
+  attSubTab:{get:()=>attSubTab,set:v=>{attSubTab=v;}},
+  attViewClub:{get:()=>attViewClub,set:v=>{attViewClub=v;}},
+  attViewDate:{get:()=>attViewDate,set:v=>{attViewDate=v;}},
 });
 render();
 </script>
