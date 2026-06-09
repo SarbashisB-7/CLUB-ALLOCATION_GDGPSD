@@ -827,7 +827,17 @@ function downloadAttendanceXLSX(rec){
   toast(`✓ Attendance sheet downloaded`,C.grn);
 }
 
-// ── BUILD ATTENDANCE TAB ──────────────────────────────────────────────────────
+async function deleteAttendance(id){
+  if(!confirm("Delete this attendance record? This cannot be undone.")) return;
+  try{
+    await deleteDoc(doc(db,"attendance",id));
+    // Remove from local cache immediately
+    attRecords = attRecords.filter(r=>r._id!==id);
+    toast("Attendance record deleted",C.amb);
+    render();
+  } catch(e){ toast("Delete failed: "+e.message,C.red); }
+}
+
 function buildAttendanceTab(){
   const cl = attClub ? gClub(attClub) : null;
   const act = (attClub && attAct) ? gAct(attClub, attAct) : null;
@@ -875,6 +885,7 @@ function buildAttendanceTab(){
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn" onclick="attClub='${rec.clubId}';attAct='${rec.actId||""}';attDate='${rec.date}';loadAttMarks('${rec.clubId}','${rec.actId||""}','${rec.date}');attSubTab='mark';render()" style="background:${C.teal};font-size:11px;padding:5px 12px">✏️ Edit</button>
             <button class="btn" onclick="DLATT('${rec._id}')" style="background:${C.grn};font-size:11px;padding:5px 12px">⬇ Excel</button>
+            <button class="btn" onclick="DELATT('${rec._id}')" style="background:${C.red};font-size:11px;padding:5px 12px">🗑 Delete</button>
           </div>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -2005,6 +2016,7 @@ window.downloadAttendanceXLSX=downloadAttendanceXLSX;
 window.loadAttMarks=loadAttMarks;
 window.attMembers=attMembers;
 window.DLATT = function(id){ const rec=attRecords.find(r=>r._id===id); if(rec) downloadAttendanceXLSX(rec); else toast("Record not found",C.red); };
+window.DELATT = function(id){ deleteAttendance(id); };
 window.AS   = addStudent;
 window.DS   = delStudent;
 window.DOE  = delOwnEntry;
